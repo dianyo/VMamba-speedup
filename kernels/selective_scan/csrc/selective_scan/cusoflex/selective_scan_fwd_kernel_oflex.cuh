@@ -37,7 +37,7 @@ struct Selective_Scan_fwd_kernel_traits {
     static constexpr int kNLoadsOutput = sizeof(output_t) * kNLoads / kNBytes;
     static constexpr bool kDirectIOOutput = kDirectIO && (kNLoadsOutput == 1);
     using vec_t = typename BytesToType<kNBytes * kNElts>::Type;
-    using scan_t = float2;
+    using scan_t = std::conditional_t<std::is_same_v<input_t, float>, float2, half2>;
     using BlockLoadT = cub::BlockLoad<input_t, kNThreads, kNItems, cub::BLOCK_LOAD_WARP_TRANSPOSE>;
     using BlockLoadVecT = cub::BlockLoad<vec_t, kNThreads, kNLoads,
         !kDirectIO ? cub::BLOCK_LOAD_WARP_TRANSPOSE : cub::BLOCK_LOAD_DIRECT>;
@@ -97,32 +97,33 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
     input_t *Cvar = reinterpret_cast<input_t *>(params.C_ptr) + batch_id * params.C_batch_stride + group_id * params.C_group_stride;
     scan_t *x = reinterpret_cast<scan_t *>(params.x_ptr) + (batch_id * params.dim + dim_id) * params.n_chunks * params.dstate;
 
-    float D_val = 0; // attention!
+    input_t D_val = 0; // attention!
     if (params.D_ptr != nullptr) {
-        D_val = reinterpret_cast<float *>(params.D_ptr)[dim_id];
+        D_val = reinterpret_cast<input_t *>(params.D_ptr)[dim_id];
     }
-    float delta_bias = 0;
+    input_t delta_bias = 0;
     if (params.delta_bias_ptr != nullptr) {
-        delta_bias = reinterpret_cast<float *>(params.delta_bias_ptr)[dim_id];
+        delta_bias = reinterpret_cast<input_t *>(params.delta_bias_ptr)[dim_id];
     }
 
     constexpr int kChunkSize = kNThreads * kNItems;
     for (int chunk = 0; chunk < params.n_chunks; ++chunk) {
         input_t u_vals[kNItems], delta_vals_load[kNItems];
         __syncthreads();
+        // delta and input u
         load_input<Ktraits>(u, u_vals, smem_load, params.seqlen - chunk * kChunkSize);
         if constexpr (!kDirectIO) { __syncthreads(); }
         load_input<Ktraits>(delta, delta_vals_load, smem_load, params.seqlen - chunk * kChunkSize);
         u += kChunkSize;
         delta += kChunkSize;
 
-        float delta_vals[kNItems], delta_u_vals[kNItems], out_vals[kNItems];
+        input_t delta_vals[kNItems], delta_u_vals[kNItems], out_vals[kNItems];
         #pragma unroll
         for (int i = 0; i < kNItems; ++i) {
-            float u_val = float(u_vals[i]);
-            delta_vals[i] = float(delta_vals_load[i]) + delta_bias;
+            input_t u_val = u_vals[i];
+            delta_vals[i] = delta_vals_load[i] + delta_bias;
             if (params.delta_softplus) {
-                delta_vals[i] = delta_vals[i] <= 20.f ? log1pf(expf(delta_vals[i])) : delta_vals[i];
+                delta_vals[i] = delta_vals[i] <= static_cast<input_t>(20.f) ? delta_softplus(delta_vals[i]) : delta_vals[i];
             }
             delta_u_vals[i] = delta_vals[i] * u_val;
             out_vals[i] = D_val * u_val;
@@ -130,7 +131,7 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
 
         __syncthreads();
         for (int state_idx = 0; state_idx < params.dstate; ++state_idx) {
-            constexpr float kLog2e = M_LOG2E;
+            constexpr weight_t kLog2e = static_cast<weight_t>(M_LOG2E);
             weight_t A_val = A[state_idx * params.A_dstate_stride];
             A_val *= kLog2e;
             weight_t B_vals[kNItems], C_vals[kNItems];
@@ -142,17 +143,17 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
             scan_t thread_data[kNItems];
             #pragma unroll
             for (int i = 0; i < kNItems; ++i) {
-                thread_data[i] = make_float2(exp2f(delta_vals[i] * A_val), B_vals[i] * delta_u_vals[i]);
+                thread_data[i] = make_vector2<input_t>(exp2_float_or_half(delta_vals[i] * A_val), B_vals[i] * delta_u_vals[i]);
                 if constexpr (!Ktraits::kIsEvenLen) {  // So that the last state is correct
                     if (threadIdx.x * kNItems + i >= params.seqlen - chunk * kChunkSize) {
-                        thread_data[i] = make_float2(1.f, 0.f);
+                        thread_data[i] = make_vector2<input_t>(static_cast<input_t>(1.f), static_cast<input_t>(0.f));
                     }
                 }
             }
             // Initialize running total
             scan_t running_prefix;
             // If we use WARP_SCAN then all lane 0 of all warps (not just thread 0) needs to read
-            running_prefix = chunk > 0 && threadIdx.x % 32 == 0 ? smem_running_prefix[state_idx] : make_float2(1.f, 0.f);
+            running_prefix = chunk > 0 && threadIdx.x % 32 == 0 ? smem_running_prefix[state_idx] : make_vector2<input_t>(static_cast<input_t>(1.f), static_cast<input_t>(0.f));
             // running_prefix = chunk > 0 && threadIdx.x == 0 ? smem_running_prefix[state_idx] : make_float2(1.f, 0.f);
             SSMScanPrefixCallbackOp<weight_t> prefix_op(running_prefix);
             Ktraits::BlockScanT(smem_scan).InclusiveScan(
