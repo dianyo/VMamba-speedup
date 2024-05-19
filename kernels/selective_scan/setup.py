@@ -117,6 +117,8 @@ def get_ext():
                 "nvcc": [
                             "-O3",
                             "-std=c++17",
+                            "-g",
+                            "-G",
                             "-U__CUDA_NO_HALF_OPERATORS__",
                             "-U__CUDA_NO_HALF_CONVERSIONS__",
                             "-U__CUDA_NO_BFLOAT16_OPERATORS__",
@@ -141,7 +143,7 @@ def get_ext():
 ext_modules = get_ext()
 setup(
     name="selective_scan",
-    version="0.0.2",
+    version="0.0.2dev",
     packages=[],
     author="Tri Dao, Albert Gu, Mzero",
     author_email="tri@tridao.me, agu@cs.cmu.edu, liuyue171@mails.ucas.ac.cn",

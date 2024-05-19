@@ -53,6 +53,50 @@ template<> struct BytesToType<1> {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+template <typename T>
+inline __device__ T delta_softplus(T x) {
+    return log1pf(expf(x));
+}
+
+template <>
+inline __device__ __half delta_softplus<__half>(__half x) {
+    return  hlog(__hadd(hexp(x), __float2half(1.0)));
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// General template
+template <typename T>
+struct make_vector2;
+
+// Specialization for float
+template <>
+struct make_vector2<float> {
+    __device__ float2 operator()(float x, float y) {
+        return make_float2(x, y);
+    }
+};
+
+// Specialization for half
+template <>
+struct make_vector2<__half> {
+    __device__ __half2 operator()(__half x, __half y) {
+        return make_half2(x, y);
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+template <typename T>
+inline __device__ T exp2_float_or_half(T x) {
+    return exp2f(x);
+}
+
+template <>
+inline __device__ __half exp2_float_or_half<__half>(__half x) {
+    return hexp2(x);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 template<typename scalar_t, int N>
 struct Converter{
     static inline __device__ void to_float(const scalar_t (&src)[N], float (&dst)[N]) {
@@ -95,10 +139,17 @@ struct SSMScanOp<float> {
     }
 };
 
+template<>
+struct SSMScanOp<at::Half> {
+    __device__ __forceinline__ half2 operator()(const half2 &ab0, const half2 &ab1) const {
+        return make_half2(ab1.x * ab0.x, (ab1.x * ab0.y + ab1.y));
+    }
+};
+
 // A stateful callback functor that maintains a running prefix to be applied
 // during consecutive scan operations.
 template <typename scalar_t> struct SSMScanPrefixCallbackOp {
-    using scan_t = std::conditional_t<std::is_same_v<scalar_t, float>, float2, float4>;
+    using scan_t = std::conditional_t<std::is_same_v<scalar_t, float>, float2, half2>;
     scan_t running_prefix;
     // Constructor
     __device__ SSMScanPrefixCallbackOp(scan_t running_prefix_) : running_prefix(running_prefix_) {}

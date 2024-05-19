@@ -402,7 +402,7 @@ def selective_scan_easy(us, dts, As, Bs, Cs, Ds, delta_bias=None, delta_softplus
 
 from test_selective_scan_easy import selective_scan_easyv3
 selective_scan_easy = selective_scan_easyv3
-from ssmtriton import selective_scan_easyv3
+# from ssmtriton import selective_scan_easyv3
 selective_scan_easy_v2 = selective_scan_easyv3
 
 def test_speed():
@@ -432,7 +432,7 @@ def test_speed():
     device = 'cuda'
     TIMES = 100
     import selective_scan_cuda_core
-    import selective_scan_cuda
+    # import selective_scan_cuda
     # copied from test_selective_scan ======================
     torch.random.manual_seed(0)
     is_complex = wtype == torch.complex64
