@@ -65,24 +65,20 @@ inline __device__ __half delta_softplus<__half>(__half x) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // General template
-template <typename T>
-struct make_vector2;
+template <typename T, typename U>
+inline __device__ T make_vector2(U x, U y) {
+    return make_float2(x, y);
+}
 
-// Specialization for float
 template <>
-struct make_vector2<float> {
-    __device__ float2 operator()(float x, float y) {
-        return make_float2(x, y);
-    }
-};
+inline __device__ __half2 make_vector2<__half2, __half>(__half x, __half y) {
+    return make_half2(x, y);
+}
 
-// Specialization for half
 template <>
-struct make_vector2<__half> {
-    __device__ __half2 operator()(__half x, __half y) {
-        return make_half2(x, y);
-    }
-};
+inline __device__ __half2 make_vector2<__half2, at::Half>(at::Half x, at::Half y) {
+    return make_half2(x, y);
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename T>
@@ -140,7 +136,7 @@ struct SSMScanOp<float> {
 };
 
 template<>
-struct SSMScanOp<at::Half> {
+struct SSMScanOp<half> {
     __device__ __forceinline__ half2 operator()(const half2 &ab0, const half2 &ab1) const {
         return make_half2(ab1.x * ab0.x, (ab1.x * ab0.y + ab1.y));
     }
@@ -198,9 +194,12 @@ inline __device__ void load_weight(typename Ktraits::input_t *Bvar,
     } else {
         Ktraits::BlockLoadWeightT(smem_load_weight).Load(Bvar, B_vals_load, seqlen, 0.f);
     }
-    // #pragma unroll
-    // for (int i = 0; i < kNItems; ++i) { B_vals[i] = B_vals_load[i]; }
-    Converter<typename Ktraits::input_t, kNItems>::to_float(B_vals_load, B_vals);
+    // if (std::is_same_v<typename Ktraits::input_t, c10::Half> && std::is_same_v<typename Ktraits::weight_t, half>) {
+    #pragma unroll
+    for (int i = 0; i < kNItems; ++i) { B_vals[i] = Ktraits::weight_t(B_vals_load[i]); }
+    // } else {
+    //     Converter<typename Ktraits::input_t, kNItems>::to_float(B_vals_load, B_vals);
+    // }
 }
 
 template<typename Ktraits>
@@ -225,7 +224,7 @@ inline __device__ void store_output(typename Ktraits::input_t *out,
 
 template<typename Ktraits>
 inline __device__ void store_output1(typename Ktraits::output_t *out,
-                                    const float (&out_vals)[Ktraits::kNItems],
+                                    const typename Ktraits::output_t (&out_vals)[Ktraits::kNItems],
                                     typename Ktraits::BlockStoreOutputT::TempStorage &smem_store,
                                     int seqlen) {
     typename Ktraits::output_t write_vals[Ktraits::kNItems];
