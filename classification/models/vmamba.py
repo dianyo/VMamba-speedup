@@ -666,6 +666,11 @@ class SS2Dv2:
             Cs = Cs.contiguous().view(B, K, N, L)
             Ds = Ds.to(torch.float) # (K * c)
             delta_bias = dt_projs_bias.view(-1).to(torch.float)
+            # As = -torch.exp(A_logs.to(torch.float16)) # (k * c, d_state)
+            # Bs = Bs.contiguous().view(B, K, N, L)
+            # Cs = Cs.contiguous().view(B, K, N, L)
+            # Ds = Ds.to(torch.float16) # (K * c)
+            # delta_bias = dt_projs_bias.view(-1).to(torch.float16)
 
             if force_fp32:
                 xs, dts, Bs, Cs = to_fp32(xs, dts, Bs, Cs)

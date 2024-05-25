@@ -201,7 +201,7 @@ selective_scan_fwd(const at::Tensor &u, const at::Tensor &delta,
 
     if (D_.has_value()) {
         auto D = D_.value();
-        TORCH_CHECK(D.scalar_type() == at::ScalarType::Float);
+        TORCH_CHECK(D.scalar_type() == at::ScalarType::Float || D.scalar_type() == at::ScalarType::Half);
         TORCH_CHECK(D.is_cuda());
         TORCH_CHECK(D.stride(-1) == 1 || D.size(-1) == 1);
         CHECK_SHAPE(D, dim);
@@ -209,7 +209,7 @@ selective_scan_fwd(const at::Tensor &u, const at::Tensor &delta,
 
     if (delta_bias_.has_value()) {
         auto delta_bias = delta_bias_.value();
-        TORCH_CHECK(delta_bias.scalar_type() == at::ScalarType::Float);
+        TORCH_CHECK(delta_bias.scalar_type() == at::ScalarType::Float || delta_bias.scalar_type() == at::ScalarType::Half);
         TORCH_CHECK(delta_bias.is_cuda());
         TORCH_CHECK(delta_bias.stride(-1) == 1 || delta_bias.size(-1) == 1);
         CHECK_SHAPE(delta_bias, dim);
