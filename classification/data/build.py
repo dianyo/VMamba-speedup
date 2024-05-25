@@ -45,14 +45,18 @@ def build_loader(config):
     config.defrost()
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
     config.freeze()
-    print(f"rank {dist.get_rank()} successfully build train dataset")
+    # print(f"rank {dist.get_rank()} successfully build train dataset")
+    print("successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
-    print(f"rank {dist.get_rank()} successfully build val dataset")
+    # print(f"rank {dist.get_rank()} successfully build val dataset")
+    print("successfully build val dataset")
 
-    num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
+    # num_tasks = dist.get_world_size()
+    # global_rank = dist.get_rank()
+    num_tasks = 1
+    global_rank = 0
     if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
-        indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
+        indices = np.arange(0, len(dataset_train), 1)
         sampler_train = SubsetRandomSampler(indices)
     else:
         sampler_train = torch.utils.data.DistributedSampler(
@@ -62,9 +66,10 @@ def build_loader(config):
     if config.TEST.SEQUENTIAL:
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
     else:
-        sampler_val = torch.utils.data.distributed.DistributedSampler(
-            dataset_val, shuffle=config.TEST.SHUFFLE
-        )
+        # sampler_val = torch.utils.data.distributed.DistributedSampler(
+        #     dataset_val, shuffle=config.TEST.SHUFFLE
+        # )
+        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
