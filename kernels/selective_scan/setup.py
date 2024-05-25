@@ -117,8 +117,8 @@ def get_ext():
                 "nvcc": [
                             "-O3",
                             "-std=c++17",
-                            "-g",
-                            "-G",
+                            # "-g",
+                            # "-G",
                             "-U__CUDA_NO_HALF_OPERATORS__",
                             "-U__CUDA_NO_HALF_CONVERSIONS__",
                             "-U__CUDA_NO_BFLOAT16_OPERATORS__",
