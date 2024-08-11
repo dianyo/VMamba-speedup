@@ -53,46 +53,6 @@ template<> struct BytesToType<1> {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <typename T>
-inline __device__ T delta_softplus(T x) {
-    return log1pf(expf(x));
-}
-
-template <>
-inline __device__ __half delta_softplus<__half>(__half x) {
-    return  hlog(__hadd(hexp(x), __float2half(1.0)));
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// General template
-template <typename T, typename U>
-inline __device__ T make_vector2(U x, U y) {
-    return make_float2(x, y);
-}
-
-template <>
-inline __device__ __half2 make_vector2<__half2, __half>(__half x, __half y) {
-    return make_half2(x, y);
-}
-
-template <>
-inline __device__ __half2 make_vector2<__half2, at::Half>(at::Half x, at::Half y) {
-    return make_half2(x, y);
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-template <typename T>
-inline __device__ T exp2_float_or_half(T x) {
-    return exp2f(x);
-}
-
-template <>
-inline __device__ __half exp2_float_or_half<__half>(__half x) {
-    return hexp2(x);
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template<typename scalar_t, int N>
 struct Converter{
     static inline __device__ void to_float(const scalar_t (&src)[N], float (&dst)[N]) {
@@ -135,17 +95,10 @@ struct SSMScanOp<float> {
     }
 };
 
-template<>
-struct SSMScanOp<half> {
-    __device__ __forceinline__ half2 operator()(const half2 &ab0, const half2 &ab1) const {
-        return make_half2(ab1.x * ab0.x, (ab1.x * ab0.y + ab1.y));
-    }
-};
-
 // A stateful callback functor that maintains a running prefix to be applied
 // during consecutive scan operations.
 template <typename scalar_t> struct SSMScanPrefixCallbackOp {
-    using scan_t = std::conditional_t<std::is_same_v<scalar_t, float>, float2, half2>;
+    using scan_t = std::conditional_t<std::is_same_v<scalar_t, float>, float2, float4>;
     scan_t running_prefix;
     // Constructor
     __device__ SSMScanPrefixCallbackOp(scan_t running_prefix_) : running_prefix(running_prefix_) {}
@@ -194,12 +147,9 @@ inline __device__ void load_weight(typename Ktraits::input_t *Bvar,
     } else {
         Ktraits::BlockLoadWeightT(smem_load_weight).Load(Bvar, B_vals_load, seqlen, 0.f);
     }
-    // if (std::is_same_v<typename Ktraits::input_t, c10::Half> && std::is_same_v<typename Ktraits::weight_t, half>) {
-    #pragma unroll
-    for (int i = 0; i < kNItems; ++i) { B_vals[i] = Ktraits::weight_t(B_vals_load[i]); }
-    // } else {
-    //     Converter<typename Ktraits::input_t, kNItems>::to_float(B_vals_load, B_vals);
-    // }
+    // #pragma unroll
+    // for (int i = 0; i < kNItems; ++i) { B_vals[i] = B_vals_load[i]; }
+    Converter<typename Ktraits::input_t, kNItems>::to_float(B_vals_load, B_vals);
 }
 
 template<typename Ktraits>
@@ -224,7 +174,7 @@ inline __device__ void store_output(typename Ktraits::input_t *out,
 
 template<typename Ktraits>
 inline __device__ void store_output1(typename Ktraits::output_t *out,
-                                    const typename Ktraits::output_t (&out_vals)[Ktraits::kNItems],
+                                    const float (&out_vals)[Ktraits::kNItems],
                                     typename Ktraits::BlockStoreOutputT::TempStorage &smem_store,
                                     int seqlen) {
     typename Ktraits::output_t write_vals[Ktraits::kNItems];

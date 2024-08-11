@@ -55,7 +55,7 @@ struct Selective_Scan_fwd_kernel_traits {
     using BlockScanT = cub::BlockScan<scan_t, kNThreads, cub::BLOCK_SCAN_WARP_SCANS>;
     static constexpr int kSmemIOSize = std::max({sizeof(typename BlockLoadT::TempStorage),
                                                  sizeof(typename BlockLoadVecT::TempStorage),
-                                                 2 * sizeof(typename BlockLoadWeightT::TempStorage),
+                                                 3 * sizeof(typename BlockLoadWeightT::TempStorage),
                                                  2 * sizeof(typename BlockLoadWeightVecT::TempStorage),
                                                  sizeof(typename BlockStoreT::TempStorage),
                                                  sizeof(typename BlockStoreVecT::TempStorage),
@@ -80,6 +80,7 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
     auto& smem_load = reinterpret_cast<typename Ktraits::BlockLoadT::TempStorage&>(smem_);
     auto& smem_load_weight = reinterpret_cast<typename Ktraits::BlockLoadWeightT::TempStorage&>(smem_);
     auto& smem_load_weight1 = *reinterpret_cast<typename Ktraits::BlockLoadWeightT::TempStorage*>(smem_ + sizeof(typename Ktraits::BlockLoadWeightT::TempStorage));
+    auto& smem_load_weight2 = *reinterpret_cast<typename Ktraits::BlockLoadWeightT::TempStorage*>(smem_ + 2 * sizeof(typename Ktraits::BlockLoadWeightT::TempStorage));
     auto& smem_store = reinterpret_cast<typename Ktraits::BlockStoreT::TempStorage&>(smem_);
     auto& smem_store1 = reinterpret_cast<typename Ktraits::BlockStoreOutputT::TempStorage&>(smem_);
     auto& smem_scan = *reinterpret_cast<typename Ktraits::BlockScanT::TempStorage*>(smem_ + Ktraits::kSmemIOSize);
@@ -92,7 +93,7 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
         + dim_id * params.u_d_stride;
     input_t *delta = reinterpret_cast<input_t *>(params.delta_ptr) + batch_id * params.delta_batch_stride
         + dim_id * params.delta_d_stride;
-    weight_t *A = reinterpret_cast<weight_t *>(params.A_ptr) + dim_id * params.A_d_stride;
+    input_t *Avar = reinterpret_cast<input_t *>(params.A_ptr) + batch_id * params.A_batch_stride + group_id * params.A_group_stride;
     input_t *Bvar = reinterpret_cast<input_t *>(params.B_ptr) + batch_id * params.B_batch_stride + group_id * params.B_group_stride;
     input_t *Cvar = reinterpret_cast<input_t *>(params.C_ptr) + batch_id * params.C_batch_stride + group_id * params.C_group_stride;
     scan_t *x = reinterpret_cast<scan_t *>(params.x_ptr) + (batch_id * params.dim + dim_id) * params.n_chunks * params.dstate;
@@ -108,41 +109,34 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
 
     constexpr int kChunkSize = kNThreads * kNItems;
     for (int chunk = 0; chunk < params.n_chunks; ++chunk) {
-        input_t u_vals[kNItems], delta_vals_load[kNItems];
+        input_t u_vals[kNItems];
         __syncthreads();
+        // delta and input u
         load_input<Ktraits>(u, u_vals, smem_load, params.seqlen - chunk * kChunkSize);
         if constexpr (!kDirectIO) { __syncthreads(); }
-        load_input<Ktraits>(delta, delta_vals_load, smem_load, params.seqlen - chunk * kChunkSize);
         u += kChunkSize;
-        delta += kChunkSize;
 
-        float delta_vals[kNItems], delta_u_vals[kNItems], out_vals[kNItems];
+        float out_vals[kNItems];
         #pragma unroll
         for (int i = 0; i < kNItems; ++i) {
             float u_val = float(u_vals[i]);
-            delta_vals[i] = float(delta_vals_load[i]) + delta_bias;
-            if (params.delta_softplus) {
-                delta_vals[i] = delta_vals[i] <= 20.f ? log1pf(expf(delta_vals[i])) : delta_vals[i];
-            }
-            delta_u_vals[i] = delta_vals[i] * u_val;
-            out_vals[i] = D_val * u_val;
+            out_vals[i] = 0;
         }
 
         __syncthreads();
         for (int state_idx = 0; state_idx < params.dstate; ++state_idx) {
-            constexpr float kLog2e = M_LOG2E;
-            weight_t A_val = A[state_idx * params.A_dstate_stride];
-            A_val *= kLog2e;
-            weight_t B_vals[kNItems], C_vals[kNItems];
-            load_weight<Ktraits>(Bvar + state_idx * params.B_dstate_stride, B_vals,
+            weight_t A_vals[kNItems], B_vals[kNItems], C_vals[kNItems];
+            load_weight<Ktraits>(Avar + state_idx * params.A_dstate_stride, A_vals,
                     smem_load_weight, (params.seqlen - chunk * kChunkSize));
-            load_weight<Ktraits>(Cvar + state_idx * params.C_dstate_stride, C_vals,
+            load_weight<Ktraits>(Bvar + state_idx * params.B_dstate_stride, B_vals,
                     smem_load_weight1, (params.seqlen - chunk * kChunkSize));
+            load_weight<Ktraits>(Cvar + state_idx * params.C_dstate_stride, C_vals,
+                    smem_load_weight2, (params.seqlen - chunk * kChunkSize));
             __syncthreads();
             scan_t thread_data[kNItems];
             #pragma unroll
             for (int i = 0; i < kNItems; ++i) {
-                thread_data[i] = make_float2(exp2f(delta_vals[i] * A_val), B_vals[i] * delta_u_vals[i]);
+                thread_data[i] = make_float2(A_vals[i], B_vals[i]);
                 if constexpr (!Ktraits::kIsEvenLen) {  // So that the last state is correct
                     if (threadIdx.x * kNItems + i >= params.seqlen - chunk * kChunkSize) {
                         thread_data[i] = make_float2(1.f, 0.f);
@@ -174,6 +168,7 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
             + dim_id * params.out_d_stride + chunk * kChunkSize;
         __syncthreads();
         store_output1<Ktraits>(out, out_vals, smem_store1, params.seqlen - chunk * kChunkSize);
+        Avar += kChunkSize;
         Bvar += kChunkSize;
         Cvar += kChunkSize;
     }

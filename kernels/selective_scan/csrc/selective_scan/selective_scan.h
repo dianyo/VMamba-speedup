@@ -31,8 +31,10 @@ struct SSMParamsBase {
 
     bool delta_softplus;
 
+    index_t A_batch_stride;
     index_t A_d_stride;
     index_t A_dstate_stride;
+    index_t A_group_stride;
     index_t B_batch_stride;
     index_t B_d_stride;
     index_t B_dstate_stride;

@@ -78,8 +78,10 @@ void set_ssm_params_fwd(SSMParamsBase &params,
     params.x_ptr = x_ptr;
 
     // All stride are in elements, not bytes.
-    params.A_d_stride = A.stride(0);
-    params.A_dstate_stride = A.stride(1);
+    params.A_batch_stride = A.stride(0);
+    params.A_group_stride = A.stride(1);
+    params.A_dstate_stride = A.stride(2);
+    params.A_d_stride = 0;
     params.B_batch_stride = B.stride(0);
     params.B_group_stride = B.stride(1);
     params.B_dstate_stride = B.stride(2);
@@ -185,34 +187,34 @@ selective_scan_fwd(const at::Tensor &u, const at::Tensor &delta,
     const int batch_size = sizes[0];
     const int dim = sizes[1];
     const int seqlen = sizes[2];
-    const int dstate = A.size(1);
-    const int n_groups = B.size(1);
+    const int dstate = A.sizes()[2];
+    const int n_groups = 1;
 
     TORCH_CHECK(dim % n_groups == 0, "dims should be dividable by n_groups");
     TORCH_CHECK(dstate <= MAX_DSTATE, "selective_scan only supports state dimension <= 256");
 
     CHECK_SHAPE(u, batch_size, dim, seqlen);
     CHECK_SHAPE(delta, batch_size, dim, seqlen);
-    CHECK_SHAPE(A, dim, dstate);
-    CHECK_SHAPE(B, batch_size, n_groups, dstate, seqlen);
+    CHECK_SHAPE(A, batch_size, dim, dstate, seqlen);
+    CHECK_SHAPE(B, batch_size, dim, dstate, seqlen);
     TORCH_CHECK(B.stride(-1) == 1 || B.size(-1) == 1);
-    CHECK_SHAPE(C, batch_size, n_groups, dstate, seqlen);
+    CHECK_SHAPE(C, batch_size, dim, dstate, seqlen);
     TORCH_CHECK(C.stride(-1) == 1 || C.size(-1) == 1);
 
     if (D_.has_value()) {
         auto D = D_.value();
-        TORCH_CHECK(D.scalar_type() == at::ScalarType::Float);
+        TORCH_CHECK(D.scalar_type() == at::ScalarType::Float || D.scalar_type() == at::ScalarType::Half);
         TORCH_CHECK(D.is_cuda());
         TORCH_CHECK(D.stride(-1) == 1 || D.size(-1) == 1);
-        CHECK_SHAPE(D, dim);
+        CHECK_SHAPE(D, batch_size, dim, seqlen);
     }
 
     if (delta_bias_.has_value()) {
         auto delta_bias = delta_bias_.value();
-        TORCH_CHECK(delta_bias.scalar_type() == at::ScalarType::Float);
+        TORCH_CHECK(delta_bias.scalar_type() == at::ScalarType::Float || delta_bias.scalar_type() == at::ScalarType::Half);
         TORCH_CHECK(delta_bias.is_cuda());
         TORCH_CHECK(delta_bias.stride(-1) == 1 || delta_bias.size(-1) == 1);
-        CHECK_SHAPE(delta_bias, dim);
+        CHECK_SHAPE(delta_bias, batch_size, dim, seqlen);
     }
 
     const int n_chunks = (seqlen + 2048 - 1) / 2048; // max is 128 * 16 = 2048 in fwd_kernel

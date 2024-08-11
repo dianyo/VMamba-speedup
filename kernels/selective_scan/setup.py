@@ -37,7 +37,7 @@ def get_cuda_bare_metal_version(cuda_dir):
 
     return raw_output, bare_metal_version
 
-MODES = ["core", "ndstate", "oflex"]
+MODES = ["core", "ndstate", "oflex", "oflexmean"]
 # MODES = ["core", "ndstate", "oflex", "nrow"]
 
 def get_ext():
@@ -99,6 +99,11 @@ def get_ext():
             "csrc/selective_scan/cusoflex/selective_scan_core_fwd.cu",
             "csrc/selective_scan/cusoflex/selective_scan_core_bwd.cu",
         ],
+        oflexmean=[
+            "csrc/selective_scan/cusoflexmean/selective_scan_oflexmean.cpp",
+            "csrc/selective_scan/cusoflexmean/selective_scan_core_fwd.cu",
+            "csrc/selective_scan/cusoflexmean/selective_scan_core_bwd.cu",
+        ],
     )
 
     names = dict(
@@ -106,6 +111,7 @@ def get_ext():
         nrow="selective_scan_cuda_nrow",
         ndstate="selective_scan_cuda_ndstate",
         oflex="selective_scan_cuda_oflex",
+        oflexmean="selective_scan_cuda_oflexmean",
     )
 
     ext_modules = [
@@ -143,7 +149,7 @@ def get_ext():
 ext_modules = get_ext()
 setup(
     name="selective_scan",
-    version="0.0.2dev",
+    version="0.0.3",
     packages=[],
     author="Tri Dao, Albert Gu, $@#Anonymous#@$ ",
     author_email="tri@tridao.me, agu@cs.cmu.edu, $@#Anonymous#EMAIL@$",
