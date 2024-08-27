@@ -15,6 +15,8 @@ from timm.models.layers import DropPath, trunc_normal_
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count, parameter_count
 from torchvision.models import VisionTransformer
 
+import record_utils
+
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
 # train speed is slower after enabling this opts.
 # torch.backends.cudnn.enabled = True
@@ -36,6 +38,8 @@ except:
     from csms6s import SelectiveScanMamba, SelectiveScanCore, SelectiveScanOflex
     from csms6s import flops_selective_scan_fn, flops_selective_scan_ref, selective_scan_flop_jit
 
+from .ssm_utils import selective_scan_ref_v2
+from tome_utils import bipartite_soft_matching, merge_wavg
 # =====================================================
 # we have this class as linear and conv init differ from each other
 # this function enable loading from both conv2d or linear
@@ -457,7 +461,7 @@ class SS2Dv2:
             v02=partial(self.forward_corev2, force_fp32=(not self.disable_force32), SelectiveScan=SelectiveScanMamba, CrossScan=CrossScanTriton, CrossMerge=CrossMergeTriton),
             v03=partial(self.forward_corev2, force_fp32=(not self.disable_force32), SelectiveScan=SelectiveScanOflex, CrossScan=CrossScanTriton, CrossMerge=CrossMergeTriton),
             v04=partial(self.forward_corev2, force_fp32=False, SelectiveScan=SelectiveScanOflex, CrossScan=CrossScanTriton, CrossMerge=CrossMergeTriton),
-            v05=partial(self.forward_corev2, force_fp32=False, SelectiveScan=SelectiveScanOflex, no_einsum=True, CrossScan=CrossScanTriton, CrossMerge=CrossMergeTriton),
+            v05=partial(self.forward_corev2, force_fp32=False, SelectiveScan=SelectiveScanOflex, no_einsum=True, CrossScan=CrossScan, CrossMerge=CrossMerge),
             # ===============================
             v051d=partial(self.forward_corev2, force_fp32=False, SelectiveScan=SelectiveScanOflex, no_einsum=True, CrossScan=getCSM(1)[0], CrossMerge=getCSM(1)[1],
             ),
@@ -534,6 +538,7 @@ class SS2Dv2:
             self.A_logs = nn.Parameter(torch.zeros((k_group * d_inner, d_state))) # A == -A_logs.exp() < 0; # 0 < exp(A * dt) < 1
             self.dt_projs_weight = nn.Parameter(0.1 * torch.rand((k_group, d_inner, dt_rank)))
             self.dt_projs_bias = nn.Parameter(0.1 * torch.rand((k_group, d_inner)))
+        self.ys_saved_count = 0
 
     def forward_corev2(
         self,
@@ -550,6 +555,7 @@ class SS2Dv2:
         no_einsum=False, # replace einsum with linear or conv1d to raise throughput
         # ==============================
         cascade2d=False,
+        depth=0,
         **kwargs,
     ):
         x_proj_weight = self.x_proj_weight
@@ -568,8 +574,101 @@ class SS2Dv2:
         K, D, R = dt_projs_weight.shape
         L = H * W
 
-        def selective_scan(u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=True):
-            return SelectiveScan.apply(u, delta, A, B, C, D, delta_bias, delta_softplus, -1, -1, ssoflex)
+        def selective_scan(u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=True, scan_using_mean=False, layer_name=None):
+            # return selective_scan_ref_v2(u, delta, A, B, C, D, z=None, delta_bias=delta_bias, delta_softplus=delta_softplus, scan_using_mean=scan_using_mean, layer_name=layer_name)
+            shape_key = f"{u.shape}"
+            dtype_in = torch.float32
+            u = u.to(dtype_in)
+            A = A.to(dtype_in)
+            B = B.to(dtype_in)
+            C = C.to(dtype_in)
+            D = D.to(dtype_in) if D is not None else None
+            delta = delta.to(dtype_in) if delta is not None else None
+            delta_bias = delta_bias.to(dtype_in) if delta_bias is not None else None
+
+            if delta_bias is not None:
+                delta = delta + delta_bias[..., None]
+            if delta_softplus:
+                delta = F.softplus(delta)
+            batch, dim, dstate = u.shape[0], A.shape[0], A.shape[1]
+            # is_variable_B = B.dim() >= 3
+            # is_variable_C = C.dim() >= 3
+            # if A.is_complex():
+            #     if is_variable_B:
+            #         B = torch.view_as_complex(rearrange(B, "... (L two) -> ... L two", two=2))
+            #     if is_variable_C:
+            #         C = torch.view_as_complex(rearrange(C, "... (L two) -> ... L two", two=2))
+            deltaA = torch.exp(torch.einsum('bdl,dn->bdln', delta, A))
+            # if not is_variable_B:
+            #     deltaB_u = torch.einsum('bdl,dn,bdl->bdln', delta, B, u)
+            # else:
+            #     if B.dim() == 3:
+            #         deltaB_u = torch.einsum('bdl,bnl,bdl->bdln', delta, B, u)
+            #     else:
+            B = repeat(B, "B G N L -> B (G H) N L", H=dim // B.shape[1])
+            deltaB_u = torch.einsum('bdl,bdnl,bdl->bdln', delta, B, u)
+            # if is_variable_C and C.dim() == 4:
+            C = repeat(C, "B G N L -> B (G H) N L", H=dim // C.shape[1])
+            tmp_D = None
+            
+            if scan_using_mean:
+                deltaA = deltaA.mean(dim=1, keepdim=True)
+                deltaB_u = deltaB_u.mean(dim=1, keepdim=True)
+                C = C.mean(dim=1, keepdim=True)
+                tmp_u = torch.ones(batch, 1, L, device=u.device, dtype=dtype_in)
+                tmp_delta = torch.ones(batch, 1, L, device=u.device, dtype=dtype_in)
+                shape_key += "_mean"
+                
+            else:
+                tmp_u = torch.ones(batch, dim, L, device=u.device, dtype=dtype_in)
+                tmp_delta = torch.ones(batch, dim, L, device=u.device, dtype=dtype_in)
+                shape_key += "_original"
+                # out = SelectiveScan.apply(u, delta, A, B, C, D, delta_bias, delta_softplus, -1, -1, ssoflex, False)
+                # scan_output = SelectiveScan.apply(tmp_u, tmp_delta, deltaA, deltaB_u, tmp_C, tmp_D, None, False, -1, -1, ssoflex, True)
+                # return selective_scan_ref_v2(u, delta, A, B, C, D, z=None, delta_bias=delta_bias, delta_softplus=delta_softplus, scan_using_mean=scan_using_mean, layer_name=layer_name)
+            deltaA = deltaA.transpose(-2, -1)
+            deltaB_u = deltaB_u.to(dtype_in)
+            deltaB_u = deltaB_u.transpose(-2, -1)
+            
+            # if shape_key not in record_utils.shape_dict:
+            #     # warmup
+            #     for i in range(50):
+            #         scan_output = SelectiveScan.apply(tmp_u, tmp_delta, deltaA, deltaB_u, C, tmp_D, None, False, -1, -1, ssoflex, True)
+            #     torch.cuda.synchronize()
+            #     tic1 = time.time()
+            #     for i in range(50):
+            #         scan_output = SelectiveScan.apply(tmp_u, tmp_delta, deltaA, deltaB_u, C, tmp_D, None, False, -1, -1, ssoflex, True)
+            #     torch.cuda.synchronize()
+            #     tic2 = time.time()
+            #     record_utils.shape_dict[shape_key] = (tic2 - tic1) / 50 * 1000
+            scan_output = SelectiveScan.apply(tmp_u, tmp_delta, deltaA, deltaB_u, C, tmp_D, None, False, -1, -1, ssoflex, True)
+            
+            out = scan_output if D is None else scan_output + u * rearrange(D, "d -> d 1")
+            return out
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            
+            start.record()
+            
+            mean_u = u.mean(dim=1, keepdim=True)
+            mean_delta = delta.mean(dim=1, keepdim=True)
+            mean_A = A.mean(dim=0, keepdim=True)
+            mean_B = B.mean(dim=1, keepdim=True)
+            mean_C = C.mean(dim=1, keepdim=True)
+            mean_D = D.mean(dim=0, keepdim=True)
+            mean_delta_bias = delta_bias.mean(dim=0, keepdim=True)
+            out = SelectiveScan.apply(mean_u, mean_delta, mean_A, mean_B, mean_C, mean_D, mean_delta_bias, delta_softplus, -1, -1, ssoflex)
+            end.record()
+            torch.cuda.synchronize()
+            print(f"{layer_name} mean: {start.elapsed_time(end)}")
+            
+            start.record()
+            original_out = SelectiveScan.apply(u, delta, A, B, C, D, delta_bias, delta_softplus, -1, -1, ssoflex)
+            end.record()
+            torch.cuda.synchronize()
+            print(f"{layer_name} original: {start.elapsed_time(end)}")
+            
+            return original_out
         
         if cascade2d:
             def scan_rowcol(
@@ -675,9 +774,52 @@ class SS2Dv2:
             if force_fp32:
                 xs, dts, Bs, Cs = to_fp32(xs, dts, Bs, Cs)
 
+            original_dim = xs.shape[1]
+            # if depth < 2 and original_dim == 384:
+            #     xs = xs.mean(dim=1, keepdim=True)
+            #     dts = dts.mean(dim=1, keepdim=True)
+            #     As = As.mean(dim=0, keepdim=True)
+            #     Bs = Bs.mean(dim=1, keepdim=True)
+            #     Cs = Cs.mean(dim=1, keepdim=True)
+            #     Ds = Ds.mean(dim=0, keepdim=True)
+            #     delta_bias = delta_bias.mean(dim=0, keepdim=True)
+            # #torch.cuda.nvtx.range_push(f"SelectiveScan_shape_{xs.shape[1]}")
+            scan_using_mean = False
+            # if "COMPRESS_DIM" in os.environ:
+            #     if original_dim == int(os.environ.get("COMPRESS_DIM", 384)):
+            #     # if depth < 2 and original_dim == int(os.environ.get("COMPRESS_DIM", 384)):
+            #     # if depth < 2 and (original_dim != int(os.environ.get("NOT_COMPRESS_DIM", 768))):
+            #         scan_using_mean = True
+            
+            layer_name = record_utils.reversed_module_id_mapping.get(id(self), None)
+            if layer_name in os.environ.get("SELECTED_LAYERS", "").split(','):
+                scan_using_mean = True
+
+            #torch.cuda.nvtx.range_push(f"SelectiveScan")
             ys: torch.Tensor = selective_scan(
-                xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus
-            ).view(B, K, -1, H, W)
+                xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus, scan_using_mean
+            )
+            # ys: torch.Tensor = selective_scan(
+            #     xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus, scan_using_mean, layer_name
+            # )
+            #torch.cuda.nvtx.range_pop()
+            if ys.shape[1] == 1:
+                ys = torch.cat([ys] * original_dim, dim=1)
+            # if ys.shape[1] == int(os.environ.get("YS_COMPRESS_DIM", 384)):
+            #     compress_number = ys.shape[1]
+            #     random_index = torch.randint(0, compress_number, (1,)).item()
+            #     ys = ys.mean(dim=1, keepdim=True)
+            #     # ys = ys[:, random_index]
+            #     ys = torch.cat([ys] * compress_number, dim=1)
+            # print(id(self), ys.shape)
+            # ys_shape_str = ""
+            # for _s in ys.shape:
+            #     ys_shape_str += f"_{_s}"
+            # ys_tensor_save_dir = os.environ.get("YS_TENSOR_SAVE_DIR", None)
+            # ts = time.time()
+            # torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
+            # self.ys_saved_count += 1
+            ys = ys.view(B, K, -1, H, W)
             
             y: torch.Tensor = CrossMerge.apply(ys)
 
@@ -695,7 +837,7 @@ class SS2Dv2:
 
         return (y.to(x.dtype) if to_dtype else y)
 
-    def forwardv2(self, x: torch.Tensor, **kwargs):
+    def forwardv2(self, x: torch.Tensor, depth: int, **kwargs):
         x = self.in_proj(x)
         if not self.disable_z:
             x, z = x.chunk(2, dim=(1 if self.channel_first else -1)) # (b, h, w, d)
@@ -706,7 +848,7 @@ class SS2Dv2:
         if self.with_dconv:
             x = self.conv2d(x) # (b, d, h, w)
         x = self.act(x)
-        y = self.forward_core(x)
+        y = self.forward_core(x, depth=depth)
         y = self.out_act(y)
         if not self.disable_z:
             y = y * z
@@ -1054,6 +1196,7 @@ class VSSBlock(nn.Module):
         # =============================
         use_checkpoint: bool = False,
         post_norm: bool = False,
+        depth: int = 0,
         **kwargs,
     ):
         super().__init__()
@@ -1095,14 +1238,16 @@ class VSSBlock(nn.Module):
             self.norm2 = norm_layer(hidden_dim)
             mlp_hidden_dim = int(hidden_dim * mlp_ratio)
             self.mlp = _MLP(in_features=hidden_dim, hidden_features=mlp_hidden_dim, act_layer=mlp_act_layer, drop=mlp_drop_rate, channels_first=channel_first)
+        
+        self.depth = depth
 
     def _forward(self, input: torch.Tensor):
         x = input
         if self.ssm_branch:
             if self.post_norm:
-                x = x + self.drop_path(self.norm(self.op(x)))
+                x = x + self.drop_path(self.norm(self.op(x, self.depth)))
             else:
-                x = x + self.drop_path(self.op(self.norm(x)))
+                x = x + self.drop_path(self.op(self.norm(x), self.depth))
         if self.mlp_branch:
             if self.post_norm:
                 x = x + self.drop_path(self.norm2(self.mlp(x))) # FFN
@@ -1357,6 +1502,7 @@ class VSSM(nn.Module):
                 mlp_drop_rate=mlp_drop_rate,
                 gmlp=gmlp,
                 use_checkpoint=use_checkpoint,
+                depth=d,
             ))
         
         return nn.Sequential(OrderedDict(

@@ -4,7 +4,7 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 from models.vmamba import SS2D
-
+import record_utils
 
 
 def get_quantized_range(bitwidth):
@@ -131,3 +131,15 @@ def plot_weight_distribution(model, model_name, bitwidth=32, plot_type='histogra
                     plt.savefig(os.path.join(output_dir, f'layer_{module_name}.{weight_name}_per_channel.png'))
                     plt.close(fig)  # Close the figure to free up memory
                 plot_index += 1
+
+
+def save_module_id_mapping(model):
+    module_id_mapping = {}
+    for module_name, module in model.named_modules():
+        if isinstance(module, SS2D):
+            module_id_mapping[module_name] = id(module)
+    print(module_id_mapping)
+    record_utils.reversed_module_id_mapping = {v: k for k, v in module_id_mapping.items()}
+    # ys_tensor_save_dir = os.environ.get("YS_TENSOR_SAVE_DIR", None)
+    # with open(f"{ys_tensor_save_dir}/module_id_mapping.txt", "w") as f:
+    #     json.dump(module_id_mapping, f)

@@ -188,7 +188,7 @@ selective_scan_fwd(const at::Tensor &u, const at::Tensor &delta,
     const int dim = sizes[1];
     const int seqlen = sizes[2];
     const int dstate = A.sizes()[2];
-    const int n_groups = 1;
+    const int n_groups = B.size(1);
 
     TORCH_CHECK(dim % n_groups == 0, "dims should be dividable by n_groups");
     TORCH_CHECK(dstate <= MAX_DSTATE, "selective_scan only supports state dimension <= 256");

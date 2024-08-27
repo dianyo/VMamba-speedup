@@ -18,6 +18,7 @@ import numpy as np
 
 import torch
 import torch.backends.cudnn as cudnn
+import torch.nn.utils.prune as prune
 # import torch.distributed as dist
 
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
@@ -31,7 +32,8 @@ from utils.optimizer import build_optimizer
 from utils.logger import create_logger
 from utils.utils import  NativeScalerWithGradNormCount, auto_resume_helper, reduce_tensor
 from utils.utils import load_checkpoint_ema, load_pretrained_ema, save_checkpoint_ema
-from plot_utils import plot_weight_distribution
+from plot_utils import plot_weight_distribution, save_module_id_mapping
+import record_utils
 
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count
 
@@ -79,7 +81,7 @@ def parse_option():
     )
 
     # easy config modification
-    parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
+    parser.add_argument('--batch-size', type=int, default=128, help="batch size for single GPU")
     parser.add_argument('--data-path', type=str, default="/dataset/ImageNet_ILSVRC2012", help='path to dataset')
     parser.add_argument('--zip', action='store_true', help='use zipped dataset instead of folder dataset')
     parser.add_argument('--cache-mode', type=str, default='part', choices=['no', 'full', 'part'],
@@ -117,11 +119,27 @@ def parse_option():
     # Quantization
     parser.add_argument('--fp16', action='store_true', help='use 16-bit float')
     args, unparsed = parser.parse_known_args()
-
+    args.batch_size = int(os.environ.get("BATCH_SIZE", args.batch_size))
+    args.img_size = int(os.environ.get("IMG_SIZE", 224))
     config = get_config(args)
-
     return args, config
 
+def convert_selected_layers(selected_layers):
+    layer_depth = {
+        "base": [2, 2, 20, 2],
+        "small": [2, 2, 20, 2],
+        "tiny": [2, 2, 8, 2],
+    }
+    # layers.2.blocks.14.op
+    layers = []
+    for layer in selected_layers:
+        layer_n = layer.split(".")[1]
+        block_n = layer.split(".")[3]
+        n = sum(layer_depth[os.environ.get("MODEL_TYPE")][:int(layer_n)]) + int(block_n) + 1
+        print(f"Converted {layer} to {n}")
+        layers.append(n)
+    
+    return layers
 
 def main(config, args):
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
@@ -130,22 +148,27 @@ def main(config, args):
     model = build_model(config)
 
     # if dist.get_rank() == 0:
-    #     if hasattr(model, 'flops'):
-    #         logger.info(str(model))
-    #         n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    #         logger.info(f"number of params: {n_parameters}")
-    #         flops = model.flops()
-    #         logger.info(f"number of GFLOPs: {flops / 1e9}")
-    #     else:
-    #         logger.info(flop_count_str(FlopCountAnalysis(model, (dataset_val[0][0][None],))))
-    logger.info(str(model))
+        # if hasattr(model, 'flops'):
+        #     logger.info(str(model))
+        #     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        #     logger.info(f"number of params: {n_parameters}")
+        #     flops = model.flops()
+        #     logger.info(f"number of GFLOPs: {flops / 1e9}")
+        # else:
+        #     logger.info(flop_count_str(FlopCountAnalysis(model, (dataset_val[0][0][None],))))
+    # logger.info(str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
+    logger.info(f"Selected layers: {os.environ.get('SELECTED_LAYERS', [])}")
+    # record_utils.selected_layers = convert_selected_layers(os.environ.get('SELECTED_LAYERS', "").split(','))
     # flops = model.flops()
     # logger.info(f"number of GFLOPs: {flops / 1e9}")
+    # return
+    
     if args.fp16:
         model = model.half()
 
+    # model.cuda() comment our for onnx export
     model.cuda()
     model_without_ddp = model
 
@@ -197,14 +220,17 @@ def main(config, args):
         if args.plot_weight_distribution:
             plot_weight_distribution(model, config.MODEL.NAME, bitwidth=args.bitwidth, plot_type=args.plot_type)
             return
+        save_module_id_mapping(model)
         acc1, acc5, loss = validate(config, data_loader_val, model)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
-        if model_ema is not None:
-            acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
-            logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
+        # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
+        return
+        # if model_ema is not None:
+        #     acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
+        #     logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
 
-        if config.EVAL_MODE:
-            return
+        # if config.EVAL_MODE:
+        #     return
 
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained_ema(config, model_without_ddp, logger, model_ema)
@@ -220,10 +246,10 @@ def main(config, args):
     if config.THROUGHPUT_MODE:
         logger.info(f"throughput mode ==============================")
         throughput(data_loader_val, model, logger)
-        if model_ema is not None:
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
-            throughput(data_loader_val, model_ema.ema, logger)
+        # if model_ema is not None:
+        #     torch.cuda.synchronize()
+        #     torch.cuda.empty_cache()
+        #     throughput(data_loader_val, model_ema.ema, logger)
         return
 
 
@@ -236,7 +262,7 @@ def main(config, args):
             torch.cuda.cudart().cudaProfilerStart()
         if epoch >= profiling_warmup_epoch:
             start_profiling = True
-            torch.cuda.nvtx.range_push("iteration{}".format(epoch))
+            #torch.cuda.nvtx.range_push("iteration{}".format(epoch))
         data_loader_train.sampler.set_epoch(epoch)
 
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema, profiling=start_profiling)
@@ -295,20 +321,20 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         # loss = criterion(outputs, targets)
         # loss = loss / config.TRAIN.ACCUMULATION_STEPS
 
-        # if profiling: torch.cuda.nvtx.range_push("backward")
+        # if profiling: #torch.cuda.nvtx.range_push("backward")
         # # this attribute is added by timm on one optimizer (adahessian)
         # is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
         # grad_norm = loss_scaler(loss, optimizer, clip_grad=config.TRAIN.CLIP_GRAD,
         #                         parameters=model.parameters(), create_graph=is_second_order,
         #                         update_grad=(idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0)
-        # if profiling: torch.cuda.nvtx.range_pop()
+        # if profiling: #torch.cuda.nvtx.range_pop()
         # if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
-        #     if profiling: torch.cuda.nvtx.range_push("opt.step()")
+        #     if profiling: #torch.cuda.nvtx.range_push("opt.step()")
         #     optimizer.zero_grad()
         #     lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
         #     if model_ema is not None:
         #         model_ema.update(model)
-        #     if profiling: torch.cuda.nvtx.range_pop()
+        #     if profiling: #torch.cuda.nvtx.range_pop()
         # loss_scale_value = loss_scaler.state_dict()["scale"]
 
         # # torch.cuda.synchronize()
@@ -344,13 +370,27 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
 @torch.no_grad()
 def validate(config, data_loader, model):
+    #torch.cuda.nvtx.range_push("validate")
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
+    # dummy_input = torch.randn((128, 3, 224, 224))
+    # args = (dummy_input,)
+    # onnx_model_name = os.environ.get("ONNX_MODEL_NAME", "model.onnx")
+    # torch.onnx.export(model, dummy_input, onnx_model_name, verbose=True, opset_version=17)
+    # return
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
     acc1_meter = AverageMeter()
     acc5_meter = AverageMeter()
+    after_warmup_batch_time = AverageMeter()
+    warm_up = 50
+    profiling_iter = 10
+    
+    # Run pruning
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            prune.l1_unstructured(module, name="weight", amount=0.4)
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
@@ -358,13 +398,18 @@ def validate(config, data_loader, model):
         target = target.cuda(non_blocking=True)
 
         # compute output
+        torch.cuda.synchronize()
+        end = time.time()
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
-
+        if idx > 20:
+            torch.cuda.synchronize()
+            after_warmup_batch_time.update(time.time() - end)
+            # if idx > warm_up + profiling_iter:
+            #     break
         # measure accuracy and record loss
         loss = criterion(output, target)
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-
         acc1 = reduce_tensor(acc1)
         acc5 = reduce_tensor(acc5)
         loss = reduce_tensor(loss)
@@ -378,6 +423,7 @@ def validate(config, data_loader, model):
         end = time.time()
 
         if idx % config.PRINT_FREQ == 0:
+        # if idx % 5 == 0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             logger.info(
                 f'Test: [{idx}/{len(data_loader)}]\t'
@@ -386,6 +432,16 @@ def validate(config, data_loader, model):
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
+
+            # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], f"weight_diff_accumulator_{idx}.pt"))
+            # record_utils.weight_diff_accumulator = {}
+        # if len(record_utils.shape_dict) == 8:
+        #     logger.info(f"Shape dict: {record_utils.shape_dict}")
+        #     break
+    #torch.cuda.nvtx.range_pop()
+    # torch.cuda.synchronize()
+    end = time.time()
+    logger.info(f' average batch inference time {after_warmup_batch_time.avg:.3f}')
     logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
@@ -470,12 +526,12 @@ if __name__ == '__main__':
     logger.info(f"Full config saved to {path}")
 
     # print config
-    logger.info(config.dump())
+    # logger.info(config.dump())
     logger.info(json.dumps(vars(args)))
 
     if args.memory_limit_rate > 0 and args.memory_limit_rate < 1:
         torch.cuda.set_per_process_memory_fraction(args.memory_limit_rate)
         usable_memory = torch.cuda.get_device_properties(0).total_memory * args.memory_limit_rate / 1e6
         print(f"===========> GPU memory is limited to {usable_memory}MB", flush=True)
-
+    logger.info(f"Image size: {config.DATA.IMG_SIZE}, batch size: {config.DATA.BATCH_SIZE}")
     main(config, args)
