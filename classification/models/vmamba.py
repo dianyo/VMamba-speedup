@@ -39,6 +39,7 @@ except:
     from csms6s import flops_selective_scan_fn, flops_selective_scan_ref, selective_scan_flop_jit
 
 from .ssm_utils import selective_scan_ref_v2
+import tome_utils
 from tome_utils import bipartite_soft_matching, merge_wavg
 # =====================================================
 # we have this class as linear and conv init differ from each other
@@ -46,7 +47,14 @@ from tome_utils import bipartite_soft_matching, merge_wavg
 class Linear2d(nn.Linear):
     def forward(self, x: torch.Tensor):
         # B, C, H, W = x.shape
-        return F.conv2d(x, self.weight[:, :, None, None], self.bias)
+        if x.dim() == 4:
+            return F.conv2d(x, self.weight[:, :, None, None], self.bias)
+        
+        if x.dim() == 3:
+            x = x.permute(0, 2, 1)
+            x = F.linear(x, self.weight, self.bias)
+            x = x.permute(0, 2, 1)
+            return x
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
         state_dict[prefix + "weight"] = state_dict[prefix + "weight"].view(self.weight.shape)
@@ -55,13 +63,21 @@ class Linear2d(nn.Linear):
 
 class LayerNorm2d(nn.LayerNorm):
     def forward(self, x: torch.Tensor):
-        x = x.permute(0, 2, 3, 1)
+        if x.dim() == 3:
+            x = x.permute(0, 2, 1)
+        else:
+            x = x.permute(0, 2, 3, 1)
         x = nn.functional.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
-        x = x.permute(0, 3, 1, 2)
+        
+        if x.dim() == 3:
+            x = x.permute(0, 2, 1)
+        else:
+            x = x.permute(0, 3, 1, 2)
         return x
 
 
 class PatchMerging2D(nn.Module):
+    
     def __init__(self, dim, out_dim=-1, norm_layer=nn.LayerNorm, channel_first=False):
         super().__init__()
         self.dim = dim
@@ -819,8 +835,17 @@ class SS2Dv2:
             # ts = time.time()
             # torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
             # self.ys_saved_count += 1
+            # Tome on ys
+            # ys = ys.transpose(1, 2).contiguous()
+            # merge, _ = bipartite_soft_matching(
+            #     ys, H
+            # )
+            # ys, _ = merge_wavg(merge, ys)
+            # ys = ys.transpose(1, 2).contiguous()
+            # new_h, new_w = H, W-1
+            # ys = ys.view(B, K, -1, new_h, new_w)
+            # H, W = new_h, new_w
             ys = ys.view(B, K, -1, H, W)
-            
             y: torch.Tensor = CrossMerge.apply(ys)
 
             if getattr(self, "__DEBUG__", False):
@@ -834,8 +859,18 @@ class SS2Dv2:
         if not channel_first:
             y = y.view(B, -1, H * W).transpose(dim0=1, dim1=2).contiguous().view(B, H, W, -1) # (B, L, C)
         y = out_norm(y)
+        tome_utils.last_H, tome_utils.last_W = H, W
+        y = y.view(B, y.shape[1], -1)
+        y = y.transpose(1, 2).contiguous()
+        merge, unmerge = bipartite_soft_matching(
+            y, 8
+        )
+        y = y.transpose(1, 2).contiguous()
+        y = y.view(B, -1, H, W)
 
-        return (y.to(x.dtype) if to_dtype else y)
+        print(f"Done {layer_name}")
+        # return (y.to(x.dtype) if to_dtype else y)
+        return (y.to(x.dtype) if to_dtype else y), merge, unmerge
 
     def forwardv2(self, x: torch.Tensor, depth: int, **kwargs):
         x = self.in_proj(x)
@@ -846,14 +881,21 @@ class SS2Dv2:
         if not self.channel_first:
             x = x.permute(0, 3, 1, 2).contiguous()
         if self.with_dconv:
+            if tome_utils.last_unmerge is not None and x.dim()==3:
+                x = x.permute(0, 2, 1).contiguous()
+                x = tome_utils.last_unmerge(x)
+                x = x.permute(0, 2, 1).contiguous()
+                x = x.view(x.shape[0], x.shape[1], tome_utils.last_H, tome_utils.last_W)
             x = self.conv2d(x) # (b, d, h, w)
         x = self.act(x)
-        y = self.forward_core(x, depth=depth)
+        # y = self.forward_core(x, depth=depth)
+        y, merge, unmerge = self.forward_core(x, depth=depth)
         y = self.out_act(y)
         if not self.disable_z:
             y = y * z
         out = self.dropout(self.out_proj(y))
-        return out
+        # return out
+        return out, merge, unmerge
 
 # support: xv1a,xv2a,xv3a; 
 # postfix: _cpos;_ocov;_ocov2;_ca,_ca1;_act;_mul;_onsigmoid,_onsoftmax,_ondwconv3,_onnone;
@@ -1197,6 +1239,7 @@ class VSSBlock(nn.Module):
         use_checkpoint: bool = False,
         post_norm: bool = False,
         depth: int = 0,
+        is_last_block: bool = False,
         **kwargs,
     ):
         super().__init__()
@@ -1204,7 +1247,7 @@ class VSSBlock(nn.Module):
         self.mlp_branch = mlp_ratio > 0
         self.use_checkpoint = use_checkpoint
         self.post_norm = post_norm
-
+        self.is_last_block = is_last_block
         if self.ssm_branch:
             self.norm = norm_layer(hidden_dim)
             self.op = SS2D(
@@ -1247,12 +1290,33 @@ class VSSBlock(nn.Module):
             if self.post_norm:
                 x = x + self.drop_path(self.norm(self.op(x, self.depth)))
             else:
-                x = x + self.drop_path(self.op(self.norm(x), self.depth))
+                # x = x + self.drop_path(self.op(self.norm(x), self.depth))
+                y, merge, tome_utils.last_unmerge = self.drop_path(self.op(self.norm(x), self.depth))
+                if x.dim() == 4:
+                    y = y + x
+                
+                H, W = y.shape[2:4]
+                y = y.view(y.shape[0], y.shape[1], -1)
+                y = y.transpose(1, 2).contiguous()
+                y, _ = merge_wavg(merge, y)
+                y = y.transpose(1, 2).contiguous()
+                y = y.view(y.shape[0], y.shape[1], -1)
+                
+                if x.dim() == 3:
+                    x = x + y
+                else:
+                    x = y       
         if self.mlp_branch:
             if self.post_norm:
                 x = x + self.drop_path(self.norm2(self.mlp(x))) # FFN
             else:
                 x = x + self.drop_path(self.mlp(self.norm2(x))) # FFN
+        if self.is_last_block:
+            x = x.view(x.shape[0], x.shape[1], -1)
+            x = x.transpose(1, 2).contiguous()
+            x = tome_utils.last_unmerge(x)
+            x = x.transpose(1, 2).contiguous()
+            x = x.view(x.shape[0], x.shape[1], tome_utils.last_H, tome_utils.last_W)
         return x
 
     def forward(self, input: torch.Tensor):
@@ -1482,7 +1546,10 @@ class VSSM(nn.Module):
         # if channel first, then Norm and Output are both channel_first
         depth = len(drop_path)
         blocks = []
+        is_last_block = False
         for d in range(depth):
+            if d == depth - 1:
+                is_last_block = True
             blocks.append(VSSBlock(
                 hidden_dim=dim, 
                 drop_path=drop_path[d],
@@ -1503,6 +1570,7 @@ class VSSM(nn.Module):
                 gmlp=gmlp,
                 use_checkpoint=use_checkpoint,
                 depth=d,
+                is_last_block=is_last_block,
             ))
         
         return nn.Sequential(OrderedDict(

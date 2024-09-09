@@ -388,9 +388,9 @@ def validate(config, data_loader, model):
     profiling_iter = 10
     
     # Run pruning
-    for name, module in model.named_modules():
-        if isinstance(module, torch.nn.Linear):
-            prune.l1_unstructured(module, name="weight", amount=0.4)
+    # for name, module in model.named_modules():
+    #     if isinstance(module, torch.nn.Linear):
+    #         prune.l1_unstructured(module, name="weight", amount=0.4)
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
@@ -398,13 +398,13 @@ def validate(config, data_loader, model):
         target = target.cuda(non_blocking=True)
 
         # compute output
-        torch.cuda.synchronize()
+        # torch.cuda.synchronize()
         end = time.time()
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
-        if idx > 20:
-            torch.cuda.synchronize()
-            after_warmup_batch_time.update(time.time() - end)
+        # if idx > 20:
+        #     torch.cuda.synchronize()
+        #     after_warmup_batch_time.update(time.time() - end)
             # if idx > warm_up + profiling_iter:
             #     break
         # measure accuracy and record loss

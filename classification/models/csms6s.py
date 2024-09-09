@@ -1,4 +1,5 @@
 import torch
+import record_utils
 
 # pytorch cross scan =============
 class CrossScan(torch.autograd.Function):
@@ -132,6 +133,13 @@ except Exception as e:
     # print(f"WARNING: can not import selective_scan_cuda.", flush=True)
     # print(e, flush=True)
 
+try:
+    import selective_scan_cuda_oflexmean
+except Exception as e:
+    ...
+    # print(f"WARNING: can not import selective_scan_cuda_oflex.", flush=True)
+    # print(e, flush=True)
+
 
 def check_nan_inf(tag: str, x: torch.Tensor, enable=True):
     if enable:
@@ -141,7 +149,7 @@ def check_nan_inf(tag: str, x: torch.Tensor, enable=True):
 
 
 # fvcore flops =======================================
-def flops_selective_scan_fn(B=1, L=256, D=768, N=16, with_D=True, with_Z=False, with_complex=False):
+def flops_selective_scan_fn(B=1, L=256, D=768, N=16, with_D=True, with_Z=False, with_complex=False, reduce_D=False):
     """
     u: r(B D L)
     delta: r(B D L)
@@ -157,11 +165,17 @@ def flops_selective_scan_fn(B=1, L=256, D=768, N=16, with_D=True, with_Z=False, 
     """
     assert not with_complex 
     # https://github.com/state-spaces/mamba/issues/110
-    flops = 9 * B * L * D * N
+    if reduce_D:
+        flops = 10 * B * L * N + D * B * L * N
+        D = 1
+    else:
+        flops = 9 * B * L * D * N
+    
     if with_D:
         flops += B * D * L
     if with_Z:
         flops += B * D * L    
+    
     return flops
 
 # this is only for selective_scan_ref...
@@ -273,10 +287,13 @@ class SelectiveScanCore(torch.autograd.Function):
 class SelectiveScanOflex(torch.autograd.Function):
     @staticmethod
     @torch.cuda.amp.custom_fwd
-    def forward(ctx, u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=False, nrows=1, backnrows=1, oflex=True):
+    def forward(ctx, u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=False, nrows=1, backnrows=1, oflex=True, use_mean=False):
         ctx.delta_softplus = delta_softplus
-        out, x, *rest = selective_scan_cuda_oflex.fwd(u, delta, A, B, C, D, delta_bias, delta_softplus, 1, oflex)
-        ctx.save_for_backward(u, delta, A, B, C, D, delta_bias, x)
+        if use_mean:
+            out, x, *rest = selective_scan_cuda_oflexmean.fwd(u, delta, A, B, C, D, delta_bias, delta_softplus, 1, oflex)
+        else:
+            out, x, *rest = selective_scan_cuda_oflex.fwd(u, delta, A, B, C, D, delta_bias, delta_softplus, 1, oflex)
+            ctx.save_for_backward(u, delta, A, B, C, D, delta_bias, x)
         return out
     
     @staticmethod
@@ -292,11 +309,16 @@ class SelectiveScanOflex(torch.autograd.Function):
 
 
 def selective_scan_flop_jit(inputs, outputs, flops_fn=flops_selective_scan_fn, verbose=True):
+    record_utils.n_vss_block += 1
     if verbose:
         print_jit_input_names(inputs)
     B, D, L = inputs[0].type().sizes()
     N = inputs[2].type().sizes()[1]
-    flops = flops_fn(B=B, L=L, D=D, N=N, with_D=True, with_Z=False)
+    if record_utils.n_vss_block in record_utils.selected_layers:
+        reduce_D = True
+    else:
+        reduce_D = False
+    flops = flops_fn(B=B, L=L, D=D, N=N, with_D=True, with_Z=False, reduce_D=reduce_D)
     return flops
 
 

@@ -66,6 +66,7 @@ def make_dataset_with_ann(ann_file, img_prefix, extensions):
             images.append(item)
 
     return images
+    # return images[:128]
 
 
 class DatasetFolder(data.Dataset):
