@@ -105,7 +105,11 @@ def build_dataset(is_train, config):
     if config.DATA.DATASET == 'imagenet':
         prefix = 'train' if is_train else 'val'
         if config.DATA.ZIP_MODE:
-            ann_file = prefix + "_map.txt"
+            # if PART DATA defined in env
+            if os.environ.get("PART_DATA", None):
+                ann_file = prefix + "_map_part.txt"
+            else:
+                ann_file = prefix + "_map.txt"
             prefix = prefix + ".zip@/"
             dataset = CachedImageFolder(config.DATA.DATA_PATH, ann_file, prefix, transform,
                                         cache_mode=config.DATA.CACHE_MODE if is_train else 'part')
