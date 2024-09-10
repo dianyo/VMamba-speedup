@@ -13,6 +13,7 @@
 **/output
 **/work_dirs
 **/*.log
+**/*.nsys-rep
 logs
 ckpts
 log

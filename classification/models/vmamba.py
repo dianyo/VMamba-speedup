@@ -39,7 +39,6 @@ except:
     from csms6s import flops_selective_scan_fn, flops_selective_scan_ref, selective_scan_flop_jit
 
 from .ssm_utils import selective_scan_ref_v2
-import tome_utils
 from tome_utils import bipartite_soft_matching, merge_wavg
 # =====================================================
 # we have this class as linear and conv init differ from each other
@@ -590,7 +589,7 @@ class SS2Dv2:
         K, D, R = dt_projs_weight.shape
         L = H * W
 
-        def selective_scan(u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=True, scan_using_mean=False, layer_name=None):
+        def selective_scan(u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=True, scan_using_mean=False, layer_name=None, n_remove_token=0):
             # return selective_scan_ref_v2(u, delta, A, B, C, D, z=None, delta_bias=delta_bias, delta_softplus=delta_softplus, scan_using_mean=scan_using_mean, layer_name=layer_name)
             shape_key = f"{u.shape}"
             dtype_in = torch.float32
@@ -631,13 +630,13 @@ class SS2Dv2:
                 deltaA = deltaA.mean(dim=1, keepdim=True)
                 deltaB_u = deltaB_u.mean(dim=1, keepdim=True)
                 C = C.mean(dim=1, keepdim=True)
-                tmp_u = torch.ones(batch, 1, L, device=u.device, dtype=dtype_in)
-                tmp_delta = torch.ones(batch, 1, L, device=u.device, dtype=dtype_in)
+                tmp_u = torch.ones(batch, 1, L-n_remove_token, device=u.device, dtype=dtype_in)
+                tmp_delta = torch.ones(batch, 1, L-n_remove_token, device=u.device, dtype=dtype_in)
                 shape_key += "_mean"
                 
             else:
-                tmp_u = torch.ones(batch, dim, L, device=u.device, dtype=dtype_in)
-                tmp_delta = torch.ones(batch, dim, L, device=u.device, dtype=dtype_in)
+                tmp_u = torch.ones(batch, dim, L-n_remove_token, device=u.device, dtype=dtype_in)
+                tmp_delta = torch.ones(batch, dim, L-n_remove_token, device=u.device, dtype=dtype_in)
                 shape_key += "_original"
                 # out = SelectiveScan.apply(u, delta, A, B, C, D, delta_bias, delta_softplus, -1, -1, ssoflex, False)
                 # scan_output = SelectiveScan.apply(tmp_u, tmp_delta, deltaA, deltaB_u, tmp_C, tmp_D, None, False, -1, -1, ssoflex, True)
@@ -781,6 +780,29 @@ class SS2Dv2:
             Cs = Cs.contiguous().view(B, K, N, L)
             Ds = Ds.to(torch.float) # (K * c)
             delta_bias = dt_projs_bias.view(-1).to(torch.float)
+            tome_n = int(os.environ.get("TOME_N", 0))
+            r = 0
+            if tome_n > 0:
+                # Index token merging on xs
+                xs = xs.transpose(1, 2).contiguous()
+                merge, unmerge, r = bipartite_soft_matching(
+                    xs, tome_n
+                )
+                xs, _ = merge_wavg(merge, xs)
+                xs = xs.transpose(1, 2).contiguous()
+                
+                dts = dts.transpose(1, 2).contiguous()
+                dts, _ = merge_wavg(merge, dts)
+                dts = dts.transpose(1, 2).contiguous()
+                # print(f"tome_n: {tome_n}, L: {L}")
+                Bs = Bs.view(B, K*N, L).transpose(1, 2).contiguous()
+                Bs, _ = merge_wavg(merge, Bs)
+                # print(Bs.shape)
+                Bs = Bs.transpose(1, 2).contiguous().view(B, K, N, L-r)
+                
+                Cs = Cs.view(B, K*N, L).transpose(1, 2).contiguous()
+                Cs, _ = merge_wavg(merge, Cs)
+                Cs = Cs.transpose(1, 2).contiguous().view(B, K, N, L-r)                
             # As = -torch.exp(A_logs.to(torch.float16)) # (k * c, d_state)
             # Bs = Bs.contiguous().view(B, K, N, L)
             # Cs = Cs.contiguous().view(B, K, N, L)
@@ -791,21 +813,7 @@ class SS2Dv2:
                 xs, dts, Bs, Cs = to_fp32(xs, dts, Bs, Cs)
 
             original_dim = xs.shape[1]
-            # if depth < 2 and original_dim == 384:
-            #     xs = xs.mean(dim=1, keepdim=True)
-            #     dts = dts.mean(dim=1, keepdim=True)
-            #     As = As.mean(dim=0, keepdim=True)
-            #     Bs = Bs.mean(dim=1, keepdim=True)
-            #     Cs = Cs.mean(dim=1, keepdim=True)
-            #     Ds = Ds.mean(dim=0, keepdim=True)
-            #     delta_bias = delta_bias.mean(dim=0, keepdim=True)
-            # #torch.cuda.nvtx.range_push(f"SelectiveScan_shape_{xs.shape[1]}")
             scan_using_mean = False
-            # if "COMPRESS_DIM" in os.environ:
-            #     if original_dim == int(os.environ.get("COMPRESS_DIM", 384)):
-            #     # if depth < 2 and original_dim == int(os.environ.get("COMPRESS_DIM", 384)):
-            #     # if depth < 2 and (original_dim != int(os.environ.get("NOT_COMPRESS_DIM", 768))):
-            #         scan_using_mean = True
             
             layer_name = record_utils.reversed_module_id_mapping.get(id(self), None)
             if layer_name in os.environ.get("SELECTED_LAYERS", "").split(','):
@@ -813,7 +821,7 @@ class SS2Dv2:
 
             #torch.cuda.nvtx.range_push(f"SelectiveScan")
             ys: torch.Tensor = selective_scan(
-                xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus, scan_using_mean
+                xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus, scan_using_mean, None, r
             )
             # ys: torch.Tensor = selective_scan(
             #     xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus, scan_using_mean, layer_name
@@ -821,13 +829,7 @@ class SS2Dv2:
             #torch.cuda.nvtx.range_pop()
             if ys.shape[1] == 1:
                 ys = torch.cat([ys] * original_dim, dim=1)
-            # if ys.shape[1] == int(os.environ.get("YS_COMPRESS_DIM", 384)):
-            #     compress_number = ys.shape[1]
-            #     random_index = torch.randint(0, compress_number, (1,)).item()
-            #     ys = ys.mean(dim=1, keepdim=True)
-            #     # ys = ys[:, random_index]
-            #     ys = torch.cat([ys] * compress_number, dim=1)
-            # print(id(self), ys.shape)
+
             # ys_shape_str = ""
             # for _s in ys.shape:
             #     ys_shape_str += f"_{_s}"
@@ -835,16 +837,12 @@ class SS2Dv2:
             # ts = time.time()
             # torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
             # self.ys_saved_count += 1
-            # Tome on ys
-            # ys = ys.transpose(1, 2).contiguous()
-            # merge, _ = bipartite_soft_matching(
-            #     ys, H
-            # )
-            # ys, _ = merge_wavg(merge, ys)
-            # ys = ys.transpose(1, 2).contiguous()
-            # new_h, new_w = H, W-1
-            # ys = ys.view(B, K, -1, new_h, new_w)
-            # H, W = new_h, new_w
+            
+            if tome_n > 0:
+                ys = ys.view(B, -1, L-r).transpose(1, 2).contiguous()
+                ys = unmerge(ys)
+                ys = ys.view(B, L, -1).transpose(1, 2).contiguous()
+
             ys = ys.view(B, K, -1, H, W)
             y: torch.Tensor = CrossMerge.apply(ys)
 
@@ -859,18 +857,18 @@ class SS2Dv2:
         if not channel_first:
             y = y.view(B, -1, H * W).transpose(dim0=1, dim1=2).contiguous().view(B, H, W, -1) # (B, L, C)
         y = out_norm(y)
-        tome_utils.last_H, tome_utils.last_W = H, W
-        y = y.view(B, y.shape[1], -1)
-        y = y.transpose(1, 2).contiguous()
-        merge, unmerge = bipartite_soft_matching(
-            y, 8
-        )
-        y = y.transpose(1, 2).contiguous()
-        y = y.view(B, -1, H, W)
+        # tome_utils.last_H, tome_utils.last_W = H, W
+        # y = y.view(B, y.shape[1], -1)
+        # y = y.transpose(1, 2).contiguous()
+        # merge, unmerge = bipartite_soft_matching(
+        #     y, 8
+        # )
+        # y = y.transpose(1, 2).contiguous()
+        # y = y.view(B, -1, H, W)
 
-        print(f"Done {layer_name}")
-        # return (y.to(x.dtype) if to_dtype else y)
-        return (y.to(x.dtype) if to_dtype else y), merge, unmerge
+        # print(f"Done {layer_name}")
+        return (y.to(x.dtype) if to_dtype else y)
+        # return (y.to(x.dtype) if to_dtype else y), merge, unmerge
 
     def forwardv2(self, x: torch.Tensor, depth: int, **kwargs):
         x = self.in_proj(x)
@@ -881,21 +879,21 @@ class SS2Dv2:
         if not self.channel_first:
             x = x.permute(0, 3, 1, 2).contiguous()
         if self.with_dconv:
-            if tome_utils.last_unmerge is not None and x.dim()==3:
-                x = x.permute(0, 2, 1).contiguous()
-                x = tome_utils.last_unmerge(x)
-                x = x.permute(0, 2, 1).contiguous()
-                x = x.view(x.shape[0], x.shape[1], tome_utils.last_H, tome_utils.last_W)
+            # if tome_utils.last_unmerge is not None and x.dim()==3:
+            #     x = x.permute(0, 2, 1).contiguous()
+            #     x = tome_utils.last_unmerge(x)
+            #     x = x.permute(0, 2, 1).contiguous()
+            #     x = x.view(x.shape[0], x.shape[1], tome_utils.last_H, tome_utils.last_W)
             x = self.conv2d(x) # (b, d, h, w)
         x = self.act(x)
-        # y = self.forward_core(x, depth=depth)
-        y, merge, unmerge = self.forward_core(x, depth=depth)
+        y = self.forward_core(x, depth=depth)
+        # y, merge, unmerge = self.forward_core(x, depth=depth)
         y = self.out_act(y)
         if not self.disable_z:
             y = y * z
         out = self.dropout(self.out_proj(y))
-        # return out
-        return out, merge, unmerge
+        return out
+        # return out, merge, unmerge
 
 # support: xv1a,xv2a,xv3a; 
 # postfix: _cpos;_ocov;_ocov2;_ca,_ca1;_act;_mul;_onsigmoid,_onsoftmax,_ondwconv3,_onnone;
@@ -1290,33 +1288,33 @@ class VSSBlock(nn.Module):
             if self.post_norm:
                 x = x + self.drop_path(self.norm(self.op(x, self.depth)))
             else:
-                # x = x + self.drop_path(self.op(self.norm(x), self.depth))
-                y, merge, tome_utils.last_unmerge = self.drop_path(self.op(self.norm(x), self.depth))
-                if x.dim() == 4:
-                    y = y + x
+                x = x + self.drop_path(self.op(self.norm(x), self.depth))
+                # y, merge, tome_utils.last_unmerge = self.drop_path(self.op(self.norm(x), self.depth))
+                # if x.dim() == 4:
+                #     y = y + x
                 
-                H, W = y.shape[2:4]
-                y = y.view(y.shape[0], y.shape[1], -1)
-                y = y.transpose(1, 2).contiguous()
-                y, _ = merge_wavg(merge, y)
-                y = y.transpose(1, 2).contiguous()
-                y = y.view(y.shape[0], y.shape[1], -1)
+                # H, W = y.shape[2:4]
+                # y = y.view(y.shape[0], y.shape[1], -1)
+                # y = y.transpose(1, 2).contiguous()
+                # y, _ = merge_wavg(merge, y)
+                # y = y.transpose(1, 2).contiguous()
+                # y = y.view(y.shape[0], y.shape[1], -1)
                 
-                if x.dim() == 3:
-                    x = x + y
-                else:
-                    x = y       
+                # if x.dim() == 3:
+                #     x = x + y
+                # else:
+                #     x = y       
         if self.mlp_branch:
             if self.post_norm:
                 x = x + self.drop_path(self.norm2(self.mlp(x))) # FFN
             else:
                 x = x + self.drop_path(self.mlp(self.norm2(x))) # FFN
-        if self.is_last_block:
-            x = x.view(x.shape[0], x.shape[1], -1)
-            x = x.transpose(1, 2).contiguous()
-            x = tome_utils.last_unmerge(x)
-            x = x.transpose(1, 2).contiguous()
-            x = x.view(x.shape[0], x.shape[1], tome_utils.last_H, tome_utils.last_W)
+        # if self.is_last_block:
+        #     x = x.view(x.shape[0], x.shape[1], -1)
+        #     x = x.transpose(1, 2).contiguous()
+        #     x = tome_utils.last_unmerge(x)
+        #     x = x.transpose(1, 2).contiguous()
+        #     x = x.view(x.shape[0], x.shape[1], tome_utils.last_H, tome_utils.last_W)
         return x
 
     def forward(self, input: torch.Tensor):

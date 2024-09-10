@@ -160,6 +160,7 @@ def main(config, args):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
     logger.info(f"Selected layers: {os.environ.get('SELECTED_LAYERS', [])}")
+    logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
     # record_utils.selected_layers = convert_selected_layers(os.environ.get('SELECTED_LAYERS', "").split(','))
     # flops = model.flops()
     # logger.info(f"number of GFLOPs: {flops / 1e9}")
@@ -224,7 +225,7 @@ def main(config, args):
         acc1, acc5, loss = validate(config, data_loader_val, model)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
-        return
+        # return
         # if model_ema is not None:
         #     acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
         #     logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
