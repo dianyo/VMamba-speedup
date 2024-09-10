@@ -12,6 +12,7 @@
 **/tmp
 **/output
 **/work_dirs
+**/*.log
 logs
 ckpts
 log
