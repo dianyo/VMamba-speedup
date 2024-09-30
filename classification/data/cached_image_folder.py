@@ -102,9 +102,9 @@ class DatasetFolder(data.Dataset):
                                             os.path.join(root, img_prefix),
                                             extensions)
 
-        if len(samples) == 0:
-            raise (RuntimeError("Found 0 files in subfolders of: " + root + "\n" +
-                                "Supported extensions are: " + ",".join(extensions)))
+        # if len(samples) == 0:
+        #     raise (RuntimeError("Found 0 files in subfolders of: " + root + "\n" +
+        #                         "Supported extensions are: " + ",".join(extensions)))
 
         self.root = root
         self.loader = loader

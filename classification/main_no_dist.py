@@ -191,7 +191,7 @@ def main(config, args):
     if config.TRAIN.ACCUMULATION_STEPS > 1:
         lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
     else:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+        lr_scheduler = build_scheduler(config, optimizer, 1)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
@@ -225,7 +225,7 @@ def main(config, args):
         acc1, acc5, loss = validate(config, data_loader_val, model)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
-        # return
+        return
         # if model_ema is not None:
         #     acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
         #     logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
@@ -246,7 +246,9 @@ def main(config, args):
 
     if config.THROUGHPUT_MODE:
         logger.info(f"throughput mode ==============================")
-        throughput(data_loader_val, model, logger)
+        for n_tome in [0, 32]:
+            os.environ["TOME_N"] = str(n_tome)
+            throughput(data_loader_val, model, logger)
         # if model_ema is not None:
         #     torch.cuda.synchronize()
         #     torch.cuda.empty_cache()
