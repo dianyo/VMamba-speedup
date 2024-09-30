@@ -590,6 +590,7 @@ class SS2Dv2:
         L = H * W
 
         def selective_scan(u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=True, scan_using_mean=False, layer_name=None, n_remove_token=0):
+            return SelectiveScan.apply(u, delta, A, B, C, D, None, False, -1, -1, ssoflex, False)
             # return selective_scan_ref_v2(u, delta, A, B, C, D, z=None, delta_bias=delta_bias, delta_softplus=delta_softplus, scan_using_mean=scan_using_mean, layer_name=layer_name)
             shape_key = f"{u.shape}"
             dtype_in = torch.float32
@@ -784,10 +785,14 @@ class SS2Dv2:
             r = 0
             if tome_n > 0:
                 # Index token merging on xs
+                torch.cuda.nvtx.range_push(f"IndexTokenMerging")
                 xs = xs.transpose(1, 2).contiguous()
                 merge, unmerge, r = bipartite_soft_matching(
                     xs, tome_n
                 )
+                torch.cuda.nvtx.range_pop()
+                
+                torch.cuda.nvtx.range_push(f"Merging")
                 xs, _ = merge_wavg(merge, xs)
                 xs = xs.transpose(1, 2).contiguous()
                 
@@ -802,7 +807,8 @@ class SS2Dv2:
                 
                 Cs = Cs.view(B, K*N, L).transpose(1, 2).contiguous()
                 Cs, _ = merge_wavg(merge, Cs)
-                Cs = Cs.transpose(1, 2).contiguous().view(B, K, N, L-r)                
+                Cs = Cs.transpose(1, 2).contiguous().view(B, K, N, L-r)   
+                torch.cuda.nvtx.range_pop()             
             # As = -torch.exp(A_logs.to(torch.float16)) # (k * c, d_state)
             # Bs = Bs.contiguous().view(B, K, N, L)
             # Cs = Cs.contiguous().view(B, K, N, L)
@@ -819,14 +825,14 @@ class SS2Dv2:
             if layer_name in os.environ.get("SELECTED_LAYERS", "").split(','):
                 scan_using_mean = True
 
-            #torch.cuda.nvtx.range_push(f"SelectiveScan")
+            torch.cuda.nvtx.range_push(f"SelectiveScan")
             ys: torch.Tensor = selective_scan(
                 xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus, scan_using_mean, None, r
             )
             # ys: torch.Tensor = selective_scan(
             #     xs, dts, As, Bs, Cs, Ds, delta_bias, delta_softplus, scan_using_mean, layer_name
             # )
-            #torch.cuda.nvtx.range_pop()
+            torch.cuda.nvtx.range_pop()
             if ys.shape[1] == 1:
                 ys = torch.cat([ys] * original_dim, dim=1)
 
@@ -839,9 +845,11 @@ class SS2Dv2:
             # self.ys_saved_count += 1
             
             if tome_n > 0:
+                torch.cuda.nvtx.range_push(f"Unmerging")
                 ys = ys.view(B, -1, L-r).transpose(1, 2).contiguous()
                 ys = unmerge(ys)
                 ys = ys.view(B, L, -1).transpose(1, 2).contiguous()
+                torch.cuda.nvtx.range_pop()
 
             ys = ys.view(B, K, -1, H, W)
             y: torch.Tensor = CrossMerge.apply(ys)
@@ -1581,9 +1589,14 @@ class VSSM(nn.Module):
         if self.pos_embed is not None:
             pos_embed = self.pos_embed.permute(0, 2, 3, 1) if not self.channel_first else self.pos_embed
             x = x + pos_embed
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
+            torch.cuda.nvtx.range_push(f"layer{i}")
             x = layer(x)
+            torch.cuda.nvtx.range_pop()
+        
+        torch.cuda.nvtx.range_push("classifier")
         x = self.classifier(x)
+        torch.cuda.nvtx.range_pop()
         return x
 
     def flops(self, shape=(3, 224, 224), verbose=True):

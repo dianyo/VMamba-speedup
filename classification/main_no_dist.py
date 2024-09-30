@@ -222,10 +222,10 @@ def main(config, args):
             plot_weight_distribution(model, config.MODEL.NAME, bitwidth=args.bitwidth, plot_type=args.plot_type)
             return
         save_module_id_mapping(model)
-        acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        # acc1, acc5, loss = validate(config, data_loader_val, model)
+        # logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
-        return
+        # return
         # if model_ema is not None:
         #     acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
         #     logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
@@ -246,8 +246,9 @@ def main(config, args):
 
     if config.THROUGHPUT_MODE:
         logger.info(f"throughput mode ==============================")
-        for n_tome in [0, 32]:
+        for n_tome in [32]:
             os.environ["TOME_N"] = str(n_tome)
+            logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
             throughput(data_loader_val, model, logger)
         # if model_ema is not None:
         #     torch.cuda.synchronize()
@@ -456,16 +457,16 @@ def throughput(data_loader, model, logger):
     for idx, (images, _) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
         batch_size = images.shape[0]
-        for i in range(50):
+        for i in range(10):
             model(images)
         torch.cuda.synchronize()
-        logger.info(f"throughput averaged with 30 times")
+        logger.info(f"throughput averaged with 10 times")
         tic1 = time.time()
-        for i in range(30):
+        for i in range(10):
             model(images)
         torch.cuda.synchronize()
         tic2 = time.time()
-        logger.info(f"batch_size {batch_size} throughput {30 * batch_size / (tic2 - tic1)}")
+        logger.info(f"batch_size {batch_size} throughput {10 * batch_size / (tic2 - tic1)}")
         return
 
 
