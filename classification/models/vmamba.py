@@ -590,7 +590,7 @@ class SS2Dv2:
         L = H * W
 
         def selective_scan(u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=True, scan_using_mean=False, layer_name=None, n_remove_token=0):
-            return SelectiveScan.apply(u, delta, A, B, C, D, None, False, -1, -1, ssoflex, False)
+            return SelectiveScan.apply(u, delta, A, B, C, D, delta_bias, delta_softplus, -1, -1, ssoflex, False)
             # return selective_scan_ref_v2(u, delta, A, B, C, D, z=None, delta_bias=delta_bias, delta_softplus=delta_softplus, scan_using_mean=scan_using_mean, layer_name=layer_name)
             shape_key = f"{u.shape}"
             dtype_in = torch.float32
@@ -786,7 +786,6 @@ class SS2Dv2:
             if tome_n > 0:
                 # Index token merging on xs
                 torch.cuda.nvtx.range_push(f"IndexTokenMerging")
-                xs = xs.transpose(1, 2).contiguous()
                 merge, unmerge, r = bipartite_soft_matching(
                     xs, tome_n
                 )
@@ -794,20 +793,17 @@ class SS2Dv2:
                 
                 torch.cuda.nvtx.range_push(f"Merging")
                 xs, _ = merge_wavg(merge, xs)
-                xs = xs.transpose(1, 2).contiguous()
                 
-                dts = dts.transpose(1, 2).contiguous()
                 dts, _ = merge_wavg(merge, dts)
-                dts = dts.transpose(1, 2).contiguous()
                 # print(f"tome_n: {tome_n}, L: {L}")
-                Bs = Bs.view(B, K*N, L).transpose(1, 2).contiguous()
+                Bs = Bs.view(B, K*N, L)
                 Bs, _ = merge_wavg(merge, Bs)
                 # print(Bs.shape)
-                Bs = Bs.transpose(1, 2).contiguous().view(B, K, N, L-r)
+                Bs = Bs.view(B, K, N, L-r)
                 
-                Cs = Cs.view(B, K*N, L).transpose(1, 2).contiguous()
+                Cs = Cs.view(B, K*N, L)
                 Cs, _ = merge_wavg(merge, Cs)
-                Cs = Cs.transpose(1, 2).contiguous().view(B, K, N, L-r)   
+                Cs = Cs.view(B, K, N, L-r)   
                 torch.cuda.nvtx.range_pop()             
             # As = -torch.exp(A_logs.to(torch.float16)) # (k * c, d_state)
             # Bs = Bs.contiguous().view(B, K, N, L)
@@ -846,9 +842,9 @@ class SS2Dv2:
             
             if tome_n > 0:
                 torch.cuda.nvtx.range_push(f"Unmerging")
-                ys = ys.view(B, -1, L-r).transpose(1, 2).contiguous()
+                ys = ys.view(B, -1, L-r)
                 ys = unmerge(ys)
-                ys = ys.view(B, L, -1).transpose(1, 2).contiguous()
+                ys = ys.view(B, L, -1)
                 torch.cuda.nvtx.range_pop()
 
             ys = ys.view(B, K, -1, H, W)
