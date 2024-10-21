@@ -222,12 +222,13 @@ def main(config, args):
             plot_weight_distribution(model, config.MODEL.NAME, bitwidth=args.bitwidth, plot_type=args.plot_type)
             return
         save_module_id_mapping(model)
-        # for n_tome in [128]:
-        #     os.environ["TOME_N"] = str(n_tome)
-        #     acc1, acc5, loss = validate(config, data_loader_val, model)
-        # logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        if not config.THROUGHPUT_MODE:
+            for n_tome in [128]:
+                os.environ["TOME_N"] = str(n_tome)
+                acc1, acc5, loss = validate(config, data_loader_val, model)
+            logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
-        # return
+            return
         # if model_ema is not None:
         #     acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
         #     logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")

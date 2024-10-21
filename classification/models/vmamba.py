@@ -791,25 +791,38 @@ class SS2Dv2:
                 for i in range(4):
                     i_x_proj_weight = x_proj_weight[i * x_proj_weight_dim: (i + 1) * x_proj_weight_dim]
                     i_xs = xs[:, i].transpose(1, 2)
-                    if False:
+                    if sparse:
+                        torch.cuda.nvtx.range_push(f"sparse linear")
                         batch_x_dbl_linear = []
-                        for b in range(B):
-                            b_i_xs = i_xs[b]
-                            # padding to 32 for sparse
-                            pad_first_dim = 32 - b_i_xs.size(0) % 32
-                            pad_second_dim = 64 - b_i_xs.size(1) % 64
-                            b_i_xs = F.pad(b_i_xs, (0, pad_second_dim, 0, pad_first_dim))
-                            # print(b_i_xs.shape)
-                            b_i_xs = to_sparse_semi_structured(b_i_xs)
-                            weight_pad = b_i_xs.size(1) - i_x_proj_weight.size(1)
-                            if weight_pad > 0:
-                                i_x_proj_weight = F.pad(i_x_proj_weight, (0, weight_pad))
-                            # print(i_x_proj_weight.shape)
-                            b_i_xs = F.linear(b_i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
-                            batch_x_dbl_linear.append(b_i_xs[:-pad_first_dim, :b_i_xs.size(1)])
-                        x_dbl_linear.append(torch.stack(batch_x_dbl_linear, dim=0))
+                        # for b in range(B):
+                        #     b_i_xs = i_xs[b]
+                        #     # padding to 32 for sparse
+                        #     pad_first_dim = 32 - b_i_xs.size(0) % 32
+                        #     pad_second_dim = 64 - b_i_xs.size(1) % 64
+                        #     b_i_xs = F.pad(b_i_xs, (0, pad_second_dim, 0, pad_first_dim))
+                        #     # print(b_i_xs.shape)
+                        #     print(b_i_xs)
+                        #     b_i_xs = to_sparse_semi_structured(b_i_xs)
+                        #     print(b_i_xs)
+                        #     weight_pad = b_i_xs.size(1) - i_x_proj_weight.size(1)
+                        #     if weight_pad > 0:
+                        #         i_x_proj_weight = F.pad(i_x_proj_weight, (0, weight_pad))
+                        #     # print(i_x_proj_weight.shape)
+                        #     b_i_xs = F.linear(b_i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
+                        #     batch_x_dbl_linear.append(b_i_xs[:-pad_first_dim, :b_i_xs.size(1)])
+                        #     sys.exit(0)
+                        # x_dbl_linear.append(torch.stack(batch_x_dbl_linear, dim=0))
+                        i_xs = i_xs.reshape(-1, i_xs.size(2))
+                        torch.cuda.nvtx.range_push(f"to_sparse_semi_structured")
+                        i_xs = i_xs.to_sparse_csr()
+                        torch.cuda.nvtx.range_pop()
+                        out = i_xs @ i_x_proj_weight.T
+                        x_dbl_linear.append(out.view(B, L, i_x_proj_weight.size(0)))
+                        torch.cuda.nvtx.range_pop()
                     else:
+                        torch.cuda.nvtx.range_push(f"linear")
                         x_dbl_linear.append(F.linear(i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None)))
+                        torch.cuda.nvtx.range_pop()
                 x_dbl = torch.concat(x_dbl_linear, dim=2).transpose(1, 2)
                 # print("Sparsity of x_dbl", torch.sum(x_dbl == 0).item() / x_dbl.numel())
                 # print("x_dbl_linear", x_dbl_linear.shape)
