@@ -188,6 +188,7 @@ class CrossScanTriton(torch.autograd.Function):
 class CrossMergeTriton(torch.autograd.Function):
     @staticmethod
     def forward(ctx, y: torch.Tensor):
+        # print(f"Sparsity before merge: {y.nonzero().shape[0] / y.numel()}")
         B, K, C, H, W = y.shape
         B, C, H, W = int(B), int(C), int(H), int(W)
         BC, BH, BW = min(triton.next_power_of_2(C), 1), min(triton.next_power_of_2(H), 64), min(triton.next_power_of_2(W), 64)
@@ -197,6 +198,7 @@ class CrossMergeTriton(torch.autograd.Function):
         y = y.contiguous().view(B, 4, C, H, W)
         x = y.new_empty((B, C, H, W))
         triton_cross_merge[(NH * NW, NC, B)](x, y, BC, BH, BW, C, H, W, NH, NW)
+        # print(f"Sparsity after merge: {x.nonzero().shape[0] / x.numel()}")
         return x.view(B, C, -1)
     
     @staticmethod

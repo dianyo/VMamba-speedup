@@ -4,6 +4,10 @@ from einops import rearrange, repeat
 
 import record_utils
 
+def sparsity(x: torch.Tensor) -> torch.Tensor:
+    if x is None:
+        return 0.0
+    return (x == 0).sum() / x.numel()
 
 def selective_scan_ref_v2(u, delta, A, B, C, D=None, z=None, delta_bias=None, delta_softplus=False,
                       return_last_state=False, scan_using_mean=False, layer_name=None):
@@ -94,8 +98,16 @@ def selective_scan_ref_v2(u, delta, A, B, C, D=None, z=None, delta_bias=None, de
         deltaB_u = deltaB_u.mean(dim=1, keepdim=True)
         C = C.mean(dim=1, keepdim=True)
         x = x.mean(dim=1, keepdim=True)
-  
+    
+    # print(f"Sparsity of inputs of SSM: deltaA={sparsity(deltaA)}, deltaB_u={sparsity(deltaB_u)}, C={sparsity(C)}, x={sparsity(x)}")
+    zero_indices = []
     for i in range(u.shape[2]):
+        if torch.all(deltaB_u[:, :, i] == 0):
+            # print("Found sparse deltaB_u")
+            ys.append(torch.zeros_like(u[:, :, 0]))
+            # ys.append(ys[-1] if len(ys) > 0 else torch.zeros_like(u[:, :, 0]))
+            zero_indices.append(i)
+            continue
         x = deltaA[:, :, i] * x + deltaB_u[:, :, i]
         if not is_variable_C:
             y = torch.einsum('bdn,dn->bd', x, C)
@@ -110,7 +122,14 @@ def selective_scan_ref_v2(u, delta, A, B, C, D=None, z=None, delta_bias=None, de
         #     y = y.real * 2
         ys.append(y)
     y = torch.stack(ys, dim=2) # (batch dim L)
-    out = y if D is None else y + u * rearrange(D, "d -> d 1")
+    # print(f"Sparsity of output of SSM: y={sparsity(y)}")
+    # if D, let index of 0 in y be 0 in D
+    if D is not None:
+        u_D = u * rearrange(D, "d -> d 1")
+        u_D[zero_indices] = 0
+        out = y + u_D
+    # print(f"Sparsity of output of SSM after adding u_D: out={sparsity(out)}")
+    # out = y if D is None else y + u * rearrange(D, "d -> d 1")
     if z is not None:
         out = out * F.silu(z)
     out = out.to(dtype=dtype_in)

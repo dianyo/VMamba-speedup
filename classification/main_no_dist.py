@@ -222,7 +222,9 @@ def main(config, args):
             plot_weight_distribution(model, config.MODEL.NAME, bitwidth=args.bitwidth, plot_type=args.plot_type)
             return
         save_module_id_mapping(model)
-        # acc1, acc5, loss = validate(config, data_loader_val, model)
+        # for n_tome in [128]:
+        #     os.environ["TOME_N"] = str(n_tome)
+        #     acc1, acc5, loss = validate(config, data_loader_val, model)
         # logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
         # return
@@ -246,7 +248,7 @@ def main(config, args):
 
     if config.THROUGHPUT_MODE:
         logger.info(f"throughput mode ==============================")
-        for n_tome in [32]:
+        for n_tome in [128]:
             os.environ["TOME_N"] = str(n_tome)
             logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
             throughput(data_loader_val, model, logger)
@@ -398,6 +400,7 @@ def validate(config, data_loader, model):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
+        record_utils.n_vss_block = 0
         images = images.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
 

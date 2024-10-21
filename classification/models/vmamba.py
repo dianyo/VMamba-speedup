@@ -14,7 +14,7 @@ from einops import rearrange, repeat
 from timm.models.layers import DropPath, trunc_normal_
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count, parameter_count
 from torchvision.models import VisionTransformer
-
+from torch.sparse import to_sparse_semi_structured
 import record_utils
 
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
@@ -573,6 +573,7 @@ class SS2Dv2:
         depth=0,
         **kwargs,
     ):
+        record_utils.n_vss_block += 1
         x_proj_weight = self.x_proj_weight
         x_proj_bias = getattr(self, "x_proj_bias", None)
         dt_projs_weight = self.dt_projs_weight
@@ -762,18 +763,74 @@ class SS2Dv2:
             ).view(B, W, 2, -1, H).sum(dim=2).permute(0, 2, 3, 1)
             y = y_col
         else:
+            tome_n = int(os.environ.get("TOME_N", 0))
+            sparse = False
+            if tome_n > 0 and record_utils.n_vss_block % 4 == 0:
+            # if tome_n > 0:
+                # Index token merging on xs
+                # print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
+                torch.cuda.nvtx.range_push(f"IndexTokenMerging")
+                x = x.view(x.shape[0], x.shape[1], -1)
+                merge, unmerge, r = bipartite_soft_matching(
+                    x, tome_n
+                )
+                torch.cuda.nvtx.range_pop()
+                
+                torch.cuda.nvtx.range_push(f"Merging")
+                x, _ = merge_wavg(merge, x)
+                x = x.view(B, D, H, W)
+                torch.cuda.nvtx.range_pop()
+                
+                sparse = True
             xs = CrossScan.apply(x)
             if no_einsum:
-                x_dbl = F.conv1d(xs.view(B, -1, L), x_proj_weight.view(-1, D, 1), bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None), groups=K)
+                    # print("x_proj_bias", x_proj_bias.shape)
+                x_dbl_linear = []
+                x_proj_weight_dim = x_proj_weight.size(1)
+                x_proj_weight = x_proj_weight.view(-1, D)
+                for i in range(4):
+                    i_x_proj_weight = x_proj_weight[i * x_proj_weight_dim: (i + 1) * x_proj_weight_dim]
+                    i_xs = xs[:, i].transpose(1, 2)
+                    if False:
+                        batch_x_dbl_linear = []
+                        for b in range(B):
+                            b_i_xs = i_xs[b]
+                            # padding to 32 for sparse
+                            pad_first_dim = 32 - b_i_xs.size(0) % 32
+                            pad_second_dim = 64 - b_i_xs.size(1) % 64
+                            b_i_xs = F.pad(b_i_xs, (0, pad_second_dim, 0, pad_first_dim))
+                            # print(b_i_xs.shape)
+                            b_i_xs = to_sparse_semi_structured(b_i_xs)
+                            weight_pad = b_i_xs.size(1) - i_x_proj_weight.size(1)
+                            if weight_pad > 0:
+                                i_x_proj_weight = F.pad(i_x_proj_weight, (0, weight_pad))
+                            # print(i_x_proj_weight.shape)
+                            b_i_xs = F.linear(b_i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
+                            batch_x_dbl_linear.append(b_i_xs[:-pad_first_dim, :b_i_xs.size(1)])
+                        x_dbl_linear.append(torch.stack(batch_x_dbl_linear, dim=0))
+                    else:
+                        x_dbl_linear.append(F.linear(i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None)))
+                x_dbl = torch.concat(x_dbl_linear, dim=2).transpose(1, 2)
+                # print("Sparsity of x_dbl", torch.sum(x_dbl == 0).item() / x_dbl.numel())
+                # print("x_dbl_linear", x_dbl_linear.shape)
+                # x_dbl_linear = linear_layer(xs.view(B, -1, L).transpose(1, 2))
+                # x_dbl = F.conv1d(xs.view(B, -1, L), x_proj_weight.view(-1, D, 1), bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None), groups=K)
+                # print(x_dbl.shape)
+                # print(x_dbl_linear[0, 0, :10])
+                # print(x_dbl[0, 0, :10])
+                # print(x_dbl_linear.shape)
+                # x_dbl_linear = x_dbl_linear.transpose(1, 2)
+                # print(x_dbl_linear == x_dbl)
                 dts, Bs, Cs = torch.split(x_dbl.view(B, K, -1, L), [R, N, N], dim=2)
                 dts = F.conv1d(dts.contiguous().view(B, -1, L), dt_projs_weight.view(K * D, -1, 1), groups=K)
             else:
+                print("einsum")
                 x_dbl = torch.einsum("b k d l, k c d -> b k c l", xs, x_proj_weight)
                 if x_proj_bias is not None:
                     x_dbl = x_dbl + x_proj_bias.view(1, K, -1, 1)
                 dts, Bs, Cs = torch.split(x_dbl, [R, N, N], dim=2)
                 dts = torch.einsum("b k r l, k d r -> b k d l", dts, dt_projs_weight)
-
+            # sys.exit(0)
             xs = xs.view(B, -1, L)
             dts = dts.contiguous().view(B, -1, L)
             As = -torch.exp(A_logs.to(torch.float)) # (k * c, d_state)
@@ -781,30 +838,30 @@ class SS2Dv2:
             Cs = Cs.contiguous().view(B, K, N, L)
             Ds = Ds.to(torch.float) # (K * c)
             delta_bias = dt_projs_bias.view(-1).to(torch.float)
-            tome_n = int(os.environ.get("TOME_N", 0))
             r = 0
-            if tome_n > 0:
-                # Index token merging on xs
-                torch.cuda.nvtx.range_push(f"IndexTokenMerging")
-                merge, unmerge, r = bipartite_soft_matching(
-                    xs, tome_n
-                )
-                torch.cuda.nvtx.range_pop()
+            # if tome_n > 0 and record_utils.n_vss_block % 4 == 0:
+            #     print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
+            #     # Index token merging on xs
+            #     torch.cuda.nvtx.range_push(f"IndexTokenMerging")
+            #     merge, unmerge, r = bipartite_soft_matching(
+            #         xs, tome_n
+            #     )
+            #     torch.cuda.nvtx.range_pop()
                 
-                torch.cuda.nvtx.range_push(f"Merging")
-                xs, _ = merge_wavg(merge, xs)
+            #     torch.cuda.nvtx.range_push(f"Merging")
+            #     xs, _ = merge_wavg(merge, xs)
                 
-                dts, _ = merge_wavg(merge, dts)
-                # print(f"tome_n: {tome_n}, L: {L}")
-                Bs = Bs.view(B, K*N, L)
-                Bs, _ = merge_wavg(merge, Bs)
-                # print(Bs.shape)
-                Bs = Bs.view(B, K, N, L-r)
+            #     dts, _ = merge_wavg(merge, dts)
+            #     # print(f"tome_n: {tome_n}, L: {L}")
+            #     Bs = Bs.view(B, K*N, L)
+            #     Bs, _ = merge_wavg(merge, Bs)
+            #     # print(Bs.shape)
+            #     Bs = Bs.view(B, K, N, L)
                 
-                Cs = Cs.view(B, K*N, L)
-                Cs, _ = merge_wavg(merge, Cs)
-                Cs = Cs.view(B, K, N, L-r)   
-                torch.cuda.nvtx.range_pop()             
+            #     Cs = Cs.view(B, K*N, L)
+            #     Cs, _ = merge_wavg(merge, Cs)
+            #     Cs = Cs.view(B, K, N, L)   
+            #     torch.cuda.nvtx.range_pop()             
             # As = -torch.exp(A_logs.to(torch.float16)) # (k * c, d_state)
             # Bs = Bs.contiguous().view(B, K, N, L)
             # Cs = Cs.contiguous().view(B, K, N, L)
@@ -840,15 +897,17 @@ class SS2Dv2:
             # torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
             # self.ys_saved_count += 1
             
-            if tome_n > 0:
-                torch.cuda.nvtx.range_push(f"Unmerging")
-                ys = ys.view(B, -1, L-r)
-                ys = unmerge(ys)
-                ys = ys.view(B, L, -1)
-                torch.cuda.nvtx.range_pop()
+            # if tome_n > 0:
+            #     torch.cuda.nvtx.range_push(f"Unmerging")
+            #     ys = ys.view(B, -1, L-r)
+            #     ys = unmerge(ys)
+            #     ys = ys.view(B, L, -1)
+            #     torch.cuda.nvtx.range_pop()
 
             ys = ys.view(B, K, -1, H, W)
+            # print(f"Sparsity of ys: {torch.sum(ys == 0).item() / ys.numel()}")
             y: torch.Tensor = CrossMerge.apply(ys)
+            # print(f"Sparsity of y: {torch.sum(y == 0).item() / y.numel()}")
 
             if getattr(self, "__DEBUG__", False):
                 setattr(self, "__data__", dict(
@@ -856,7 +915,7 @@ class SS2Dv2:
                     us=xs, dts=dts, delta_bias=delta_bias,
                     ys=ys, y=y, H=H, W=W,
                 ))
-
+        # print(f"Sparsity of y: {torch.sum(y == 0).item() / y.numel()}")
         y = y.view(B, -1, H, W)
         if not channel_first:
             y = y.view(B, -1, H * W).transpose(dim0=1, dim1=2).contiguous().view(B, H, W, -1) # (B, L, C)
