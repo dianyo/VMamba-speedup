@@ -225,6 +225,7 @@ def main(config, args):
         if not config.THROUGHPUT_MODE:
             for n_tome in [128]:
                 os.environ["TOME_N"] = str(n_tome)
+                logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
                 acc1, acc5, loss = validate(config, data_loader_val, model)
             logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
@@ -249,7 +250,7 @@ def main(config, args):
 
     if config.THROUGHPUT_MODE:
         logger.info(f"throughput mode ==============================")
-        for n_tome in [128]:
+        for n_tome in [128, 512, 1024, 1536, 2048]:
             os.environ["TOME_N"] = str(n_tome)
             logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
             throughput(data_loader_val, model, logger)

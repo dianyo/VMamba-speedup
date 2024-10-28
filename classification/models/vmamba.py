@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import math
 import copy
@@ -15,6 +16,8 @@ from timm.models.layers import DropPath, trunc_normal_
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count, parameter_count
 from torchvision.models import VisionTransformer
 from torch.sparse import to_sparse_semi_structured
+from torchao.sparsity.training.autograd import semi_structured_sparsify
+
 import record_utils
 
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
@@ -591,7 +594,10 @@ class SS2Dv2:
         L = H * W
 
         def selective_scan(u, delta, A, B, C, D=None, delta_bias=None, delta_softplus=True, scan_using_mean=False, layer_name=None, n_remove_token=0):
-            return SelectiveScan.apply(u, delta, A, B, C, D, delta_bias, delta_softplus, -1, -1, ssoflex, False)
+            if False:
+                return selective_scan_ref_v2(u, delta, A, B, C, D, z=None, delta_bias=delta_bias, delta_softplus=delta_softplus, scan_using_mean=scan_using_mean, layer_name=layer_name)
+            else:
+                return SelectiveScan.apply(u, delta, A, B, C, D, delta_bias, delta_softplus, -1, -1, ssoflex, False)
             # return selective_scan_ref_v2(u, delta, A, B, C, D, z=None, delta_bias=delta_bias, delta_softplus=delta_softplus, scan_using_mean=scan_using_mean, layer_name=layer_name)
             shape_key = f"{u.shape}"
             dtype_in = torch.float32
@@ -783,6 +789,10 @@ class SS2Dv2:
                 
                 sparse = True
             xs = CrossScan.apply(x)
+            if False:
+                for i in range(xs.shape[-1]):
+                    sparsity_xs = torch.sum(xs[0, 0, :, i] == 0).item() / xs[0, 0, :, i].numel()
+                    print(f"Sparsity of xs at index {i}: {sparsity_xs}")
             if no_einsum:
                     # print("x_proj_bias", x_proj_bias.shape)
                 x_dbl_linear = []
@@ -801,22 +811,22 @@ class SS2Dv2:
                         #     pad_second_dim = 64 - b_i_xs.size(1) % 64
                         #     b_i_xs = F.pad(b_i_xs, (0, pad_second_dim, 0, pad_first_dim))
                         #     # print(b_i_xs.shape)
-                        #     print(b_i_xs)
+                        #     # print(b_i_xs)
                         #     b_i_xs = to_sparse_semi_structured(b_i_xs)
-                        #     print(b_i_xs)
+                        #     # print(b_i_xs)
                         #     weight_pad = b_i_xs.size(1) - i_x_proj_weight.size(1)
                         #     if weight_pad > 0:
                         #         i_x_proj_weight = F.pad(i_x_proj_weight, (0, weight_pad))
                         #     # print(i_x_proj_weight.shape)
                         #     b_i_xs = F.linear(b_i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
                         #     batch_x_dbl_linear.append(b_i_xs[:-pad_first_dim, :b_i_xs.size(1)])
-                        #     sys.exit(0)
+                        #     # sys.exit(0)
                         # x_dbl_linear.append(torch.stack(batch_x_dbl_linear, dim=0))
-                        i_xs = i_xs.reshape(-1, i_xs.size(2))
+                        # i_xs = i_xs.reshape(-1, i_xs.size(2))
                         torch.cuda.nvtx.range_push(f"to_sparse_semi_structured")
-                        i_xs = i_xs.to_sparse_csr()
+                        i_xs = semi_structured_sparsify(i_xs, backend="cusparselt")
                         torch.cuda.nvtx.range_pop()
-                        out = i_xs @ i_x_proj_weight.T
+                        out = F.linear(i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
                         x_dbl_linear.append(out.view(B, L, i_x_proj_weight.size(0)))
                         torch.cuda.nvtx.range_pop()
                     else:
@@ -828,7 +838,6 @@ class SS2Dv2:
                 # print("x_dbl_linear", x_dbl_linear.shape)
                 # x_dbl_linear = linear_layer(xs.view(B, -1, L).transpose(1, 2))
                 # x_dbl = F.conv1d(xs.view(B, -1, L), x_proj_weight.view(-1, D, 1), bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None), groups=K)
-                # print(x_dbl.shape)
                 # print(x_dbl_linear[0, 0, :10])
                 # print(x_dbl[0, 0, :10])
                 # print(x_dbl_linear.shape)
@@ -902,14 +911,18 @@ class SS2Dv2:
             if ys.shape[1] == 1:
                 ys = torch.cat([ys] * original_dim, dim=1)
 
-            # ys_shape_str = ""
-            # for _s in ys.shape:
-            #     ys_shape_str += f"_{_s}"
-            # ys_tensor_save_dir = os.environ.get("YS_TENSOR_SAVE_DIR", None)
-            # ts = time.time()
-            # torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
-            # self.ys_saved_count += 1
-            
+            print(ys.shape)
+            print(layer_name)
+            if layer_name == "layers.2.blocks.0.op":
+                ys_shape_str = ""
+                for _s in ys.shape:
+                    ys_shape_str += f"_{_s}"
+                ys_tensor_save_dir = os.environ.get("YS_TENSOR_SAVE_DIR", None)
+                ts = time.time()
+                print("start saving ys")
+                torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
+                self.ys_saved_count += 1
+                        
             # if tome_n > 0:
             #     torch.cuda.nvtx.range_push(f"Unmerging")
             #     ys = ys.view(B, -1, L-r)

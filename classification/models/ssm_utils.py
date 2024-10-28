@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
-
+import sys
 import record_utils
 
 def sparsity(x: torch.Tensor) -> torch.Tensor:
@@ -99,15 +99,14 @@ def selective_scan_ref_v2(u, delta, A, B, C, D=None, z=None, delta_bias=None, de
         C = C.mean(dim=1, keepdim=True)
         x = x.mean(dim=1, keepdim=True)
     
-    # print(f"Sparsity of inputs of SSM: deltaA={sparsity(deltaA)}, deltaB_u={sparsity(deltaB_u)}, C={sparsity(C)}, x={sparsity(x)}")
     zero_indices = []
     for i in range(u.shape[2]):
-        if torch.all(deltaB_u[:, :, i] == 0):
-            # print("Found sparse deltaB_u")
-            ys.append(torch.zeros_like(u[:, :, 0]))
-            # ys.append(ys[-1] if len(ys) > 0 else torch.zeros_like(u[:, :, 0]))
-            zero_indices.append(i)
-            continue
+        # if torch.all(deltaB_u[:, :, i] == 0):
+        #     print("Found sparse deltaB_u")
+        #     ys.append(torch.zeros_like(u[:, :, 0]))
+        #     ys.append(ys[-1] if len(ys) > 0 else torch.zeros_like(u[:, :, 0]))
+        #     zero_indices.append(i)
+        #     continue
         x = deltaA[:, :, i] * x + deltaB_u[:, :, i]
         if not is_variable_C:
             y = torch.einsum('bdn,dn->bd', x, C)
@@ -126,7 +125,8 @@ def selective_scan_ref_v2(u, delta, A, B, C, D=None, z=None, delta_bias=None, de
     # if D, let index of 0 in y be 0 in D
     if D is not None:
         u_D = u * rearrange(D, "d -> d 1")
-        u_D[zero_indices] = 0
+        # print(u_D.shape)
+        # u_D[zero_indices] = 0
         out = y + u_D
     # print(f"Sparsity of output of SSM after adding u_D: out={sparsity(out)}")
     # out = y if D is None else y + u * rearrange(D, "d -> d 1")

@@ -99,10 +99,13 @@ def bipartite_soft_matching(
         unm_full = src.clone()
         unm_full.scatter_(-1, src_idx.expand(n, c, r), torch.zeros_like(src_to_merge))
 
+        reconstructed = torch.zeros_like(x)
+        reconstructed[..., :, ::2] = unm_full
+        reconstructed[..., :, 1::2] = dst
         if distill_token:
             return torch.cat([unm[:, :, :1], dst[:, :, :1], unm[:, :, 1:], dst[:, :, 1:]], dim=2)
         else:
-            return torch.cat([unm_full, dst], dim=2)
+            return reconstructed
 
     def unmerge(x: torch.Tensor) -> torch.Tensor:
         unm_len = unm_idx.shape[2]
