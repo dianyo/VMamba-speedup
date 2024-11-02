@@ -223,7 +223,7 @@ def main(config, args):
             return
         save_module_id_mapping(model)
         if not config.THROUGHPUT_MODE:
-            for n_tome in [128]:
+            for n_tome in [1024]:
                 os.environ["TOME_N"] = str(n_tome)
                 logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
                 acc1, acc5, loss = validate(config, data_loader_val, model)
@@ -250,7 +250,7 @@ def main(config, args):
 
     if config.THROUGHPUT_MODE:
         logger.info(f"throughput mode ==============================")
-        for n_tome in [128, 512, 1024, 1536, 2048]:
+        for n_tome in [2048]:
             os.environ["TOME_N"] = str(n_tome)
             logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
             throughput(data_loader_val, model, logger)

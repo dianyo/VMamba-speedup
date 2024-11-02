@@ -94,7 +94,7 @@ def bipartite_soft_matching(
         
         unm = src.gather(dim=-1, index=unm_idx.expand(n, c, t1 - r))
         src_to_merge = src.gather(dim=-1, index=src_idx.expand(n, c, r))
-        dst = dst.scatter_reduce(-1, dst_idx, src_to_merge, reduce=mode)
+        # dst = dst.scatter_reduce(-1, dst_idx, src_to_merge, reduce=mode)
         
         unm_full = src.clone()
         unm_full.scatter_(-1, src_idx.expand(n, c, r), torch.zeros_like(src_to_merge))
@@ -105,7 +105,7 @@ def bipartite_soft_matching(
         if distill_token:
             return torch.cat([unm[:, :, :1], dst[:, :, :1], unm[:, :, 1:], dst[:, :, 1:]], dim=2)
         else:
-            return reconstructed
+            return reconstructed, src_idx
 
     def unmerge(x: torch.Tensor) -> torch.Tensor:
         unm_len = unm_idx.shape[2]
@@ -132,14 +132,14 @@ def merge_wavg(
     Returns the merged tensor and the new token sizes.
     """
     if size is None:
-        x = merge(x, mode="sum")
-        return x, None
+        x, src_idx = merge(x, mode="sum")
+        return x, None, src_idx
     
     else:
-        x = merge(x * size, mode="sum")
-        size = merge(size, mode="sum")
+        x, src_idx = merge(x * size, mode="sum")
+        size, size_src_idx = merge(size, mode="sum")
         x = x / size
-        return x, size
+        return x, size, src_idx
 
 # def calculate_new_hw(h, w, r):
 #     # original size h * w

@@ -16,8 +16,6 @@ from timm.models.layers import DropPath, trunc_normal_
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count, parameter_count
 from torchvision.models import VisionTransformer
 from torch.sparse import to_sparse_semi_structured
-from torchao.sparsity.training.autograd import semi_structured_sparsify
-
 import record_utils
 
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
@@ -771,73 +769,82 @@ class SS2Dv2:
         else:
             tome_n = int(os.environ.get("TOME_N", 0))
             sparse = False
-            if tome_n > 0 and record_utils.n_vss_block % 4 == 0:
+            if tome_n > 0 and record_utils.n_vss_block > 2 and record_utils.n_vss_block % 3 == 0:
             # if tome_n > 0:
                 # Index token merging on xs
                 # print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
-                torch.cuda.nvtx.range_push(f"IndexTokenMerging")
-                x = x.view(x.shape[0], x.shape[1], -1)
-                merge, unmerge, r = bipartite_soft_matching(
-                    x, tome_n
-                )
-                torch.cuda.nvtx.range_pop()
+                # torch.cuda.nvtx.range_push(f"IndexTokenMerging")
+                # x = x.view(x.shape[0], x.shape[1], -1)
+                # merge, unmerge, r = bipartite_soft_matching(
+                #     x, tome_n
+                # )
+                # torch.cuda.nvtx.range_pop()
                 
-                torch.cuda.nvtx.range_push(f"Merging")
-                x, _ = merge_wavg(merge, x)
-                x = x.view(B, D, H, W)
-                torch.cuda.nvtx.range_pop()
+                # torch.cuda.nvtx.range_push(f"Merging")
+                # x, _, src_idx = merge_wavg(merge, x)
+                # x = x.view(B, D, H, W)
+                # torch.cuda.nvtx.range_pop()
                 
+                torch.cuda.nvtx.range_push(f"Special H W Sliding")
+                x = x.view(x.shape[0], x.shape[1], H, W)
+                x = x[:, :, ::2, ::2].contiguous()
+                torch.cuda.nvtx.range_pop()
                 sparse = True
-            xs = CrossScan.apply(x)
+                # print(src_idx)
+            if False:
+                xs, mask, mask_transpose = CrossScan.apply(x, src_idx)
+            else:
+                xs = CrossScan.apply(x)
+            L = xs.shape[-1]
             if False:
                 for i in range(xs.shape[-1]):
                     sparsity_xs = torch.sum(xs[0, 0, :, i] == 0).item() / xs[0, 0, :, i].numel()
                     print(f"Sparsity of xs at index {i}: {sparsity_xs}")
             if no_einsum:
                     # print("x_proj_bias", x_proj_bias.shape)
-                x_dbl_linear = []
-                x_proj_weight_dim = x_proj_weight.size(1)
-                x_proj_weight = x_proj_weight.view(-1, D)
-                for i in range(4):
-                    i_x_proj_weight = x_proj_weight[i * x_proj_weight_dim: (i + 1) * x_proj_weight_dim]
-                    i_xs = xs[:, i].transpose(1, 2)
-                    if sparse:
-                        torch.cuda.nvtx.range_push(f"sparse linear")
-                        batch_x_dbl_linear = []
-                        # for b in range(B):
-                        #     b_i_xs = i_xs[b]
-                        #     # padding to 32 for sparse
-                        #     pad_first_dim = 32 - b_i_xs.size(0) % 32
-                        #     pad_second_dim = 64 - b_i_xs.size(1) % 64
-                        #     b_i_xs = F.pad(b_i_xs, (0, pad_second_dim, 0, pad_first_dim))
-                        #     # print(b_i_xs.shape)
-                        #     # print(b_i_xs)
-                        #     b_i_xs = to_sparse_semi_structured(b_i_xs)
-                        #     # print(b_i_xs)
-                        #     weight_pad = b_i_xs.size(1) - i_x_proj_weight.size(1)
-                        #     if weight_pad > 0:
-                        #         i_x_proj_weight = F.pad(i_x_proj_weight, (0, weight_pad))
-                        #     # print(i_x_proj_weight.shape)
-                        #     b_i_xs = F.linear(b_i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
-                        #     batch_x_dbl_linear.append(b_i_xs[:-pad_first_dim, :b_i_xs.size(1)])
-                        #     # sys.exit(0)
-                        # x_dbl_linear.append(torch.stack(batch_x_dbl_linear, dim=0))
-                        # i_xs = i_xs.reshape(-1, i_xs.size(2))
-                        torch.cuda.nvtx.range_push(f"to_sparse_semi_structured")
-                        i_xs = semi_structured_sparsify(i_xs, backend="cusparselt")
-                        torch.cuda.nvtx.range_pop()
-                        out = F.linear(i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
-                        x_dbl_linear.append(out.view(B, L, i_x_proj_weight.size(0)))
-                        torch.cuda.nvtx.range_pop()
-                    else:
-                        torch.cuda.nvtx.range_push(f"linear")
-                        x_dbl_linear.append(F.linear(i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None)))
-                        torch.cuda.nvtx.range_pop()
-                x_dbl = torch.concat(x_dbl_linear, dim=2).transpose(1, 2)
+                # x_dbl_linear = []
+                # x_proj_weight_dim = x_proj_weight.size(1)
+                # x_proj_weight = x_proj_weight.view(-1, D)
+                # for i in range(4):
+                #     i_x_proj_weight = x_proj_weight[i * x_proj_weight_dim: (i + 1) * x_proj_weight_dim]
+                #     i_xs = xs[:, i].transpose(1, 2)
+                #     if sparse:
+                #         torch.cuda.nvtx.range_push(f"sparse linear")
+                #         batch_x_dbl_linear = []
+                #         # for b in range(B):
+                #         #     b_i_xs = i_xs[b]
+                #         #     # padding to 32 for sparse
+                #         #     pad_first_dim = 32 - b_i_xs.size(0) % 32
+                #         #     pad_second_dim = 64 - b_i_xs.size(1) % 64
+                #         #     b_i_xs = F.pad(b_i_xs, (0, pad_second_dim, 0, pad_first_dim))
+                #         #     # print(b_i_xs.shape)
+                #         #     # print(b_i_xs)
+                #         #     b_i_xs = to_sparse_semi_structured(b_i_xs)
+                #         #     # print(b_i_xs)
+                #         #     weight_pad = b_i_xs.size(1) - i_x_proj_weight.size(1)
+                #         #     if weight_pad > 0:
+                #         #         i_x_proj_weight = F.pad(i_x_proj_weight, (0, weight_pad))
+                #         #     # print(i_x_proj_weight.shape)
+                #         #     b_i_xs = F.linear(b_i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
+                #         #     batch_x_dbl_linear.append(b_i_xs[:-pad_first_dim, :b_i_xs.size(1)])
+                #         #     # sys.exit(0)
+                #         # x_dbl_linear.append(torch.stack(batch_x_dbl_linear, dim=0))
+                #         # i_xs = i_xs.reshape(-1, i_xs.size(2))
+                #         torch.cuda.nvtx.range_push(f"to_sparse_semi_structured")
+                #         i_xs = semi_structured_sparsify(i_xs, backend="cusparselt")
+                #         torch.cuda.nvtx.range_pop()
+                #         out = F.linear(i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None))
+                #         x_dbl_linear.append(out.view(B, L, i_x_proj_weight.size(0)))
+                #         torch.cuda.nvtx.range_pop()
+                #     else:
+                #         torch.cuda.nvtx.range_push(f"linear")
+                #         x_dbl_linear.append(F.linear(i_xs, i_x_proj_weight, bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None)))
+                #         torch.cuda.nvtx.range_pop()
+                # x_dbl = torch.concat(x_dbl_linear, dim=2).transpose(1, 2)
                 # print("Sparsity of x_dbl", torch.sum(x_dbl == 0).item() / x_dbl.numel())
                 # print("x_dbl_linear", x_dbl_linear.shape)
                 # x_dbl_linear = linear_layer(xs.view(B, -1, L).transpose(1, 2))
-                # x_dbl = F.conv1d(xs.view(B, -1, L), x_proj_weight.view(-1, D, 1), bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None), groups=K)
+                x_dbl = F.conv1d(xs.view(B, -1, L), x_proj_weight.view(-1, D, 1), bias=(x_proj_bias.view(-1) if x_proj_bias is not None else None), groups=K)
                 # print(x_dbl_linear[0, 0, :10])
                 # print(x_dbl[0, 0, :10])
                 # print(x_dbl_linear.shape)
@@ -911,17 +918,17 @@ class SS2Dv2:
             if ys.shape[1] == 1:
                 ys = torch.cat([ys] * original_dim, dim=1)
 
-            print(ys.shape)
-            print(layer_name)
-            if layer_name == "layers.2.blocks.0.op":
-                ys_shape_str = ""
-                for _s in ys.shape:
-                    ys_shape_str += f"_{_s}"
-                ys_tensor_save_dir = os.environ.get("YS_TENSOR_SAVE_DIR", None)
-                ts = time.time()
-                print("start saving ys")
-                torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
-                self.ys_saved_count += 1
+            # print(ys.shape)
+            # print(layer_name)
+            # if layer_name == "layers.2.blocks.0.op":
+            #     ys_shape_str = ""
+            #     for _s in ys.shape:
+            #         ys_shape_str += f"_{_s}"
+            #     ys_tensor_save_dir = os.environ.get("YS_TENSOR_SAVE_DIR", None)
+            #     ts = time.time()
+            #     print("start saving ys")
+            #     torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
+            #     self.ys_saved_count += 1
                         
             # if tome_n > 0:
             #     torch.cuda.nvtx.range_push(f"Unmerging")
@@ -930,11 +937,52 @@ class SS2Dv2:
             #     ys = ys.view(B, L, -1)
             #     torch.cuda.nvtx.range_pop()
 
-            ys = ys.view(B, K, -1, H, W)
+            if False: 
+                # Assuming unmask and unmask_transpose are already defined
+                # Creating a single zero tensor and using the stacked masks to apply ys directly
+                new_ys = torch.zeros((B, 4 * D, H * W), dtype=ys.dtype, device=ys.device)
+
+                # Reshape ys to match the masks
+                ys = ys.view(B, K, -1, L)
+                
+                unmask = ~mask
+                unmask_transpose = ~mask_transpose 
+                # Stacking the masks for all four scatter operations
+                # We use concatenation to handle the four channels together in a single tensor
+                masks = torch.concat([
+                    unmask.bool(),
+                    unmask_transpose.bool(),
+                    unmask.bool().flip(dims=[-1]),
+                    unmask_transpose.bool().flip(dims=[-1])
+                ], dim=1)
+
+                # Apply the mask to each channel of `ys`
+                new_ys.masked_scatter_(masks, ys.view(B, K, -1, L))
+
+                # Reshape `new_ys` to final shape
+                ys = new_ys.view(B, K, -1, H, W)               
+                # new_ys_1 = torch.zeros((B, D, H * W), dtype=ys.dtype, device=ys.device)
+                # new_ys_2 = torch.zeros((B, D, H * W), dtype=ys.dtype, device=ys.device)
+                # new_ys_3 = torch.zeros((B, D, H * W), dtype=ys.dtype, device=ys.device)
+                # new_ys_4 = torch.zeros((B, D, H * W), dtype=ys.dtype, device=ys.device)
+                
+                # unmask = ~mask
+                # unmask_transpose = ~mask_transpose   
+                # ys = ys.view(B, K, -1, L)    
+                # new_ys_1.masked_scatter_(unmask.bool(), ys[:, 0])
+                # new_ys_2.masked_scatter_(unmask_transpose.bool(), ys[:, 1])
+                # new_ys_3.masked_scatter_(unmask.bool().flip(dims=[-1]), ys[:, 2])
+                # new_ys_4.masked_scatter_(unmask_transpose.bool().flip(dims=[-1]), ys[:, 3])
+                # ys = torch.concat([new_ys_1, new_ys_2, new_ys_3, new_ys_4], dim=1)
+                # # ys = torch.stack([new_ys_1, new_ys_2, new_ys_3, new_ys_4], dim=1)
+                # ys = ys.view(B, K, -1, H, W)
+            elif sparse:
+                ys = ys.view(B, K, -1, math.ceil(H/2), math.ceil(W/2))
+            else:
+                ys = ys.view(B, K, -1, H, W)
             # print(f"Sparsity of ys: {torch.sum(ys == 0).item() / ys.numel()}")
             y: torch.Tensor = CrossMerge.apply(ys)
             # print(f"Sparsity of y: {torch.sum(y == 0).item() / y.numel()}")
-
             if getattr(self, "__DEBUG__", False):
                 setattr(self, "__data__", dict(
                     A_logs=A_logs, Bs=Bs, Cs=Cs, Ds=Ds,
@@ -942,7 +990,13 @@ class SS2Dv2:
                     ys=ys, y=y, H=H, W=W,
                 ))
         # print(f"Sparsity of y: {torch.sum(y == 0).item() / y.numel()}")
-        y = y.view(B, -1, H, W)
+        if sparse:
+            torch.cuda.nvtx.range_push(f"Upsampling Back")
+            y = y.view(B, -1, math.ceil(H/2), math.ceil(W/2))
+            y = F.interpolate(y, size=(H, W))
+            torch.cuda.nvtx.range_pop()
+        else:
+            y = y.view(B, -1, H, W)
         if not channel_first:
             y = y.view(B, -1, H * W).transpose(dim0=1, dim1=2).contiguous().view(B, H, W, -1) # (B, L, C)
         y = out_norm(y)

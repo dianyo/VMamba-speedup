@@ -4,14 +4,37 @@ import record_utils
 # pytorch cross scan =============
 class CrossScan(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x: torch.Tensor):
+    def forward(ctx, x: torch.Tensor, src_idx=None):
+        if src_idx is None:
+            B, C, H, W = x.shape
+            ctx.shape = (B, C, H, W)
+            xs = x.new_empty((B, 4, C, H * W))
+            xs[:, 0] = x.flatten(2, 3)
+            xs[:, 1] = x.transpose(dim0=2, dim1=3).flatten(2, 3)
+            xs[:, 2:4] = torch.flip(xs[:, 0:2], dims=[-1])
+            return xs
+
         B, C, H, W = x.shape
         ctx.shape = (B, C, H, W)
-        xs = x.new_empty((B, 4, C, H * W))
-        xs[:, 0] = x.flatten(2, 3)
-        xs[:, 1] = x.transpose(dim0=2, dim1=3).flatten(2, 3)
-        xs[:, 2:4] = torch.flip(xs[:, 0:2], dims=[-1])
-        return xs
+        n_zero = src_idx.shape[-1]
+        out_xs = x.new_empty((B, 4, C, H * W - n_zero))
+        x_flat = x.view(B, C, -1)
+        x_transpose_flat = x.permute(0, 1, 3, 2).reshape(B, C, -1)
+        
+        mask = torch.ones((B, H * W), dtype=torch.bool, device=x.device)
+        mask.scatter_(1, src_idx.squeeze(1), False)
+        mask_transpose = mask.view(B, H, W).permute(0, 2, 1).reshape(B, -1)
+        
+        mask = mask.view(B, 1, H * W).expand(-1, C, -1)
+        mask_transpose = mask_transpose.view(B, 1, H * W).expand(-1, C, -1)
+
+        xs = x_flat[mask].view(B, C, -1)
+        xs_transpose = x_transpose_flat[mask_transpose].view(B, C, -1)
+
+        out_xs[:, 0] = xs
+        out_xs[:, 1] = xs_transpose
+        out_xs[:, 2:4] = torch.flip(out_xs[:, 0:2], dims=[-1])
+        return out_xs, mask, mask_transpose
     
     @staticmethod
     def backward(ctx, ys: torch.Tensor):
