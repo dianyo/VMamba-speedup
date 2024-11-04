@@ -30,7 +30,7 @@ from data import build_loader
 from utils.lr_scheduler import build_scheduler
 from utils.optimizer import build_optimizer
 from utils.logger import create_logger
-from utils.utils import  NativeScalerWithGradNormCount, auto_resume_helper, reduce_tensor
+from utils.utils import NativeScalerWithGradNormCount, auto_resume_helper, reduce_tensor
 from utils.utils import load_checkpoint_ema, load_pretrained_ema, save_checkpoint_ema
 from plot_utils import plot_weight_distribution, save_module_id_mapping
 import record_utils
@@ -47,6 +47,7 @@ if torch.multiprocessing.get_start_method() != "spawn":
 def import_abspy(name="models", path="classification/"):
     import sys
     import importlib
+
     path = os.path.abspath(path)
     assert os.path.isdir(path)
     sys.path.insert(0, path)
@@ -57,72 +58,137 @@ def import_abspy(name="models", path="classification/"):
 
 def str2bool(v):
     """
-    Converts string to bool type; enables command line 
+    Converts string to bool type; enables command line
     arguments in the format of '--arg1 true --arg2 false'
     """
     if isinstance(v, bool):
         return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if v.lower() in ("yes", "true", "t", "y", "1"):
         return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+    elif v.lower() in ("no", "false", "f", "n", "0"):
         return False
     else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
 def parse_option():
-    parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)
-    parser.add_argument('--cfg', type=str, required=True, metavar="FILE", help='path to config file', )
+    parser = argparse.ArgumentParser(
+        "Swin Transformer training and evaluation script", add_help=False
+    )
+    parser.add_argument(
+        "--cfg",
+        type=str,
+        required=True,
+        metavar="FILE",
+        help="path to config file",
+    )
     parser.add_argument(
         "--opts",
         help="Modify config options by adding 'KEY VALUE' pairs. ",
         default=None,
-        nargs='+',
+        nargs="+",
     )
 
     # easy config modification
-    parser.add_argument('--batch-size', type=int, default=128, help="batch size for single GPU")
-    parser.add_argument('--data-path', type=str, default="/dataset/ImageNet_ILSVRC2012", help='path to dataset')
-    parser.add_argument('--zip', action='store_true', help='use zipped dataset instead of folder dataset')
-    parser.add_argument('--cache-mode', type=str, default='part', choices=['no', 'full', 'part'],
-                        help='no: no cache, '
-                             'full: cache all data, '
-                             'part: sharding the dataset into nonoverlapping pieces and only cache one piece')
-    parser.add_argument('--pretrained',
-                        help='pretrained weight from checkpoint, could be imagenet22k pretrained weight')
-    parser.add_argument('--resume', help='resume from checkpoint')
-    parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
-    parser.add_argument('--use-checkpoint', action='store_true',
-                        help="whether to use gradient checkpointing to save memory")
-    parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
-    parser.add_argument('--output', default='output', type=str, metavar='PATH',
-                        help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
-    parser.add_argument('--tag', default=time.strftime("%Y%m%d%H%M%S", time.localtime()), help='tag of experiment')
-    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
-    parser.add_argument('--throughput', action='store_true', help='Test throughput only')
+    parser.add_argument(
+        "--batch-size", type=int, default=128, help="batch size for single GPU"
+    )
+    parser.add_argument(
+        "--data-path",
+        type=str,
+        default="/dataset/ImageNet_ILSVRC2012",
+        help="path to dataset",
+    )
+    parser.add_argument(
+        "--zip",
+        action="store_true",
+        help="use zipped dataset instead of folder dataset",
+    )
+    parser.add_argument(
+        "--cache-mode",
+        type=str,
+        default="part",
+        choices=["no", "full", "part"],
+        help="no: no cache, "
+        "full: cache all data, "
+        "part: sharding the dataset into nonoverlapping pieces and only cache one piece",
+    )
+    parser.add_argument(
+        "--pretrained",
+        help="pretrained weight from checkpoint, could be imagenet22k pretrained weight",
+    )
+    parser.add_argument("--resume", help="resume from checkpoint")
+    parser.add_argument(
+        "--accumulation-steps", type=int, help="gradient accumulation steps"
+    )
+    parser.add_argument(
+        "--use-checkpoint",
+        action="store_true",
+        help="whether to use gradient checkpointing to save memory",
+    )
+    parser.add_argument(
+        "--disable_amp", action="store_true", help="Disable pytorch amp"
+    )
+    parser.add_argument(
+        "--output",
+        default="output",
+        type=str,
+        metavar="PATH",
+        help="root of output folder, the full path is <output>/<model_name>/<tag> (default: output)",
+    )
+    parser.add_argument(
+        "--tag",
+        default=time.strftime("%Y%m%d%H%M%S", time.localtime()),
+        help="tag of experiment",
+    )
+    parser.add_argument("--eval", action="store_true", help="Perform evaluation only")
+    parser.add_argument(
+        "--throughput", action="store_true", help="Test throughput only"
+    )
 
-    parser.add_argument('--fused_layernorm', action='store_true', help='Use fused layernorm.')
-    parser.add_argument('--optim', type=str, help='overwrite optimizer if provided, can be adamw/sgd.')
+    parser.add_argument(
+        "--fused_layernorm", action="store_true", help="Use fused layernorm."
+    )
+    parser.add_argument(
+        "--optim", type=str, help="overwrite optimizer if provided, can be adamw/sgd."
+    )
 
     # EMA related parameters
-    parser.add_argument('--model_ema', type=str2bool, default=True)
-    parser.add_argument('--model_ema_decay', type=float, default=0.9999, help='')
-    parser.add_argument('--model_ema_force_cpu', type=str2bool, default=False, help='')
+    parser.add_argument("--model_ema", type=str2bool, default=True)
+    parser.add_argument("--model_ema_decay", type=float, default=0.9999, help="")
+    parser.add_argument("--model_ema_force_cpu", type=str2bool, default=False, help="")
 
-    parser.add_argument('--memory_limit_rate', type=float, default=-1, help='limitation of gpu memory use')
-    
+    parser.add_argument(
+        "--memory_limit_rate",
+        type=float,
+        default=-1,
+        help="limitation of gpu memory use",
+    )
+
     # Weight analysis
-    parser.add_argument('--plot_weight_distribution', action='store_true', help='plot weight distribution')
-    parser.add_argument('--bitwidth', type=int, default=32, help='bitwidth for weight distribution plot')
-    parser.add_argument('--plot_type', type=str, default='histogram', help='plot type for weight distribution plot')
+    parser.add_argument(
+        "--plot_weight_distribution",
+        action="store_true",
+        help="plot weight distribution",
+    )
+    parser.add_argument(
+        "--bitwidth", type=int, default=32, help="bitwidth for weight distribution plot"
+    )
+    parser.add_argument(
+        "--plot_type",
+        type=str,
+        default="histogram",
+        help="plot type for weight distribution plot",
+    )
 
     # Quantization
-    parser.add_argument('--fp16', action='store_true', help='use 16-bit float')
+    parser.add_argument("--fp16", action="store_true", help="use 16-bit float")
     args, unparsed = parser.parse_known_args()
     args.batch_size = int(os.environ.get("BATCH_SIZE", args.batch_size))
     args.img_size = int(os.environ.get("IMG_SIZE", 224))
     config = get_config(args)
     return args, config
+
 
 def convert_selected_layers(selected_layers):
     layer_depth = {
@@ -135,27 +201,34 @@ def convert_selected_layers(selected_layers):
     for layer in selected_layers:
         layer_n = layer.split(".")[1]
         block_n = layer.split(".")[3]
-        n = sum(layer_depth[os.environ.get("MODEL_TYPE")][:int(layer_n)]) + int(block_n) + 1
+        n = (
+            sum(layer_depth[os.environ.get("MODEL_TYPE")][: int(layer_n)])
+            + int(block_n)
+            + 1
+        )
         print(f"Converted {layer} to {n}")
         layers.append(n)
-    
+
     return layers
 
+
 def main(config, args):
-    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
+    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = (
+        build_loader(config)
+    )
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
 
     # if dist.get_rank() == 0:
-        # if hasattr(model, 'flops'):
-        #     logger.info(str(model))
-        #     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        #     logger.info(f"number of params: {n_parameters}")
-        #     flops = model.flops()
-        #     logger.info(f"number of GFLOPs: {flops / 1e9}")
-        # else:
-        #     logger.info(flop_count_str(FlopCountAnalysis(model, (dataset_val[0][0][None],))))
+    # if hasattr(model, 'flops'):
+    #     logger.info(str(model))
+    #     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    #     logger.info(f"number of params: {n_parameters}")
+    #     flops = model.flops()
+    #     logger.info(f"number of GFLOPs: {flops / 1e9}")
+    # else:
+    #     logger.info(flop_count_str(FlopCountAnalysis(model, (dataset_val[0][0][None],))))
     # logger.info(str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
@@ -165,7 +238,7 @@ def main(config, args):
     # flops = model.flops()
     # logger.info(f"number of GFLOPs: {flops / 1e9}")
     # return
-    
+
     if args.fp16:
         model = model.half()
 
@@ -179,24 +252,26 @@ def main(config, args):
         model_ema = ModelEma(
             model,
             decay=args.model_ema_decay,
-            device='cpu' if args.model_ema_force_cpu else '',
-            resume='')
+            device="cpu" if args.model_ema_force_cpu else "",
+            resume="",
+        )
         print("Using EMA with decay = %.8f" % args.model_ema_decay)
-
 
     optimizer = build_optimizer(config, model, logger)
     # model = torch.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
     loss_scaler = NativeScalerWithGradNormCount()
 
     if config.TRAIN.ACCUMULATION_STEPS > 1:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
+        lr_scheduler = build_scheduler(
+            config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS
+        )
     else:
         lr_scheduler = build_scheduler(config, optimizer, 1)
 
-    if config.AUG.MIXUP > 0.:
+    if config.AUG.MIXUP > 0.0:
         # smoothing is handled with mixup label transform
         criterion = SoftTargetCrossEntropy()
-    elif config.MODEL.LABEL_SMOOTHING > 0.:
+    elif config.MODEL.LABEL_SMOOTHING > 0.0:
         criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
     else:
         criterion = torch.nn.CrossEntropyLoss()
@@ -208,18 +283,33 @@ def main(config, args):
         resume_file = auto_resume_helper(config.OUTPUT)
         if resume_file:
             if config.MODEL.RESUME:
-                logger.warning(f"auto-resume changing resume file from {config.MODEL.RESUME} to {resume_file}")
+                logger.warning(
+                    f"auto-resume changing resume file from {config.MODEL.RESUME} to {resume_file}"
+                )
             config.defrost()
             config.MODEL.RESUME = resume_file
             config.freeze()
-            logger.info(f'auto resuming from {resume_file}')
+            logger.info(f"auto resuming from {resume_file}")
         else:
-            logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
+            logger.info(f"no checkpoint found in {config.OUTPUT}, ignoring auto resume")
 
     if config.MODEL.RESUME:
-        max_accuracy, max_accuracy_ema = load_checkpoint_ema(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger, model_ema)
+        max_accuracy, max_accuracy_ema = load_checkpoint_ema(
+            config,
+            model_without_ddp,
+            optimizer,
+            lr_scheduler,
+            loss_scaler,
+            logger,
+            model_ema,
+        )
         if args.plot_weight_distribution:
-            plot_weight_distribution(model, config.MODEL.NAME, bitwidth=args.bitwidth, plot_type=args.plot_type)
+            plot_weight_distribution(
+                model,
+                config.MODEL.NAME,
+                bitwidth=args.bitwidth,
+                plot_type=args.plot_type,
+            )
             return
         save_module_id_mapping(model)
         if not config.THROUGHPUT_MODE:
@@ -227,8 +317,10 @@ def main(config, args):
                 os.environ["TOME_N"] = str(n_tome)
                 logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
                 acc1, acc5, loss = validate(config, data_loader_val, model)
-            logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
-        # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
+            logger.info(
+                f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%"
+            )
+            # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], "weight_diff_accumulator.pt"))
             return
         # if model_ema is not None:
         #     acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
@@ -244,7 +336,7 @@ def main(config, args):
         # if model_ema is not None:
         #     acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
         #     logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
-        
+
         if config.EVAL_MODE:
             return
 
@@ -260,7 +352,6 @@ def main(config, args):
         #     throughput(data_loader_val, model_ema.ema, logger)
         return
 
-
     logger.info("Start training")
     profiling_warmup_epoch = 5
     start_profiling = False
@@ -270,12 +361,35 @@ def main(config, args):
             torch.cuda.cudart().cudaProfilerStart()
         if epoch >= profiling_warmup_epoch:
             start_profiling = True
-            #torch.cuda.nvtx.range_push("iteration{}".format(epoch))
+            # torch.cuda.nvtx.range_push("iteration{}".format(epoch))
         data_loader_train.sampler.set_epoch(epoch)
 
-        train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema, profiling=start_profiling)
-        if (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint_ema(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler, logger, model_ema, max_accuracy_ema)
+        train_one_epoch(
+            config,
+            model,
+            criterion,
+            data_loader_train,
+            optimizer,
+            epoch,
+            mixup_fn,
+            lr_scheduler,
+            loss_scaler,
+            model_ema,
+            profiling=start_profiling,
+        )
+        if epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1):
+            save_checkpoint_ema(
+                config,
+                epoch,
+                model_without_ddp,
+                max_accuracy,
+                optimizer,
+                lr_scheduler,
+                loss_scaler,
+                logger,
+                model_ema,
+                max_accuracy_ema,
+            )
 
         if start_profiling:
             torch.cuda.nvtx.range_pop()
@@ -292,10 +406,23 @@ def main(config, args):
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logger.info('Training time {}'.format(total_time_str))
+    logger.info("Training time {}".format(total_time_str))
 
 
-def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema=None, model_time_warmup=50, profiling=False):
+def train_one_epoch(
+    config,
+    model,
+    criterion,
+    data_loader,
+    optimizer,
+    epoch,
+    mixup_fn,
+    lr_scheduler,
+    loss_scaler,
+    model_ema=None,
+    model_time_warmup=50,
+    profiling=False,
+):
     model.train()
     optimizer.zero_grad()
 
@@ -321,11 +448,13 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         data_time.update(time.time() - end)
 
-        if profiling: torch.cuda.nvtx.range_push("forward")
+        if profiling:
+            torch.cuda.nvtx.range_push("forward")
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             outputs = model(samples)
-        if profiling: torch.cuda.nvtx.range_pop()
-        
+        if profiling:
+            torch.cuda.nvtx.range_pop()
+
         # loss = criterion(outputs, targets)
         # loss = loss / config.TRAIN.ACCUMULATION_STEPS
 
@@ -373,12 +502,14 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         #         f'loss_scale {scaler_meter.val:.4f} ({scaler_meter.avg:.4f})\t'
         #         f'mem {memory_used:.0f}MB')
     epoch_time = time.time() - start
-    logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+    logger.info(
+        f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}"
+    )
 
 
 @torch.no_grad()
 def validate(config, data_loader, model):
-    #torch.cuda.nvtx.range_push("validate")
+    # torch.cuda.nvtx.range_push("validate")
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
@@ -394,7 +525,7 @@ def validate(config, data_loader, model):
     after_warmup_batch_time = AverageMeter()
     warm_up = 50
     profiling_iter = 10
-    
+
     # Run pruning
     # for name, module in model.named_modules():
     #     if isinstance(module, torch.nn.Linear):
@@ -414,8 +545,8 @@ def validate(config, data_loader, model):
         # if idx > 20:
         #     torch.cuda.synchronize()
         #     after_warmup_batch_time.update(time.time() - end)
-            # if idx > warm_up + profiling_iter:
-            #     break
+        # if idx > warm_up + profiling_iter:
+        #     break
         # measure accuracy and record loss
         loss = criterion(output, target)
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -432,26 +563,27 @@ def validate(config, data_loader, model):
         end = time.time()
 
         if idx % config.PRINT_FREQ == 0:
-        # if idx % 5 == 0:
+            # if idx % 5 == 0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             logger.info(
-                f'Test: [{idx}/{len(data_loader)}]\t'
-                f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
-                f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
-                f'Mem {memory_used:.0f}MB')
+                f"Test: [{idx}/{len(data_loader)}]\t"
+                f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+                f"Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t"
+                f"Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t"
+                f"Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t"
+                f"Mem {memory_used:.0f}MB"
+            )
 
             # torch.save(record_utils.weight_diff_accumulator, os.path.join(os.environ["WEIGHT_DIFF_DIR"], f"weight_diff_accumulator_{idx}.pt"))
             # record_utils.weight_diff_accumulator = {}
         # if len(record_utils.shape_dict) == 8:
         #     logger.info(f"Shape dict: {record_utils.shape_dict}")
         #     break
-    #torch.cuda.nvtx.range_pop()
+    # torch.cuda.nvtx.range_pop()
     # torch.cuda.synchronize()
     end = time.time()
-    logger.info(f' average batch inference time {after_warmup_batch_time.avg:.3f}')
-    logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
+    logger.info(f" average batch inference time {after_warmup_batch_time.avg:.3f}")
+    logger.info(f" * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}")
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
 
@@ -471,19 +603,21 @@ def throughput(data_loader, model, logger):
             model(images)
         torch.cuda.synchronize()
         tic2 = time.time()
-        logger.info(f"batch_size {batch_size} throughput {10 * batch_size / (tic2 - tic1)}")
+        logger.info(
+            f"batch_size {batch_size} throughput {10 * batch_size / (tic2 - tic1)}"
+        )
         return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args, config = parse_option()
 
     if config.AMP_OPT_LEVEL:
         print("[warning] Apex amp has been deprecated, please use pytorch amp instead!")
 
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
         rank = int(os.environ["RANK"])
-        world_size = int(os.environ['WORLD_SIZE'])
+        world_size = int(os.environ["WORLD_SIZE"])
         print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
     else:
         rank = -1
@@ -506,7 +640,9 @@ if __name__ == '__main__':
     # gradient accumulation also need to scale the learning rate
     if config.TRAIN.ACCUMULATION_STEPS > 1:
         linear_scaled_lr = linear_scaled_lr * config.TRAIN.ACCUMULATION_STEPS
-        linear_scaled_warmup_lr = linear_scaled_warmup_lr * config.TRAIN.ACCUMULATION_STEPS
+        linear_scaled_warmup_lr = (
+            linear_scaled_warmup_lr * config.TRAIN.ACCUMULATION_STEPS
+        )
         linear_scaled_min_lr = linear_scaled_min_lr * config.TRAIN.ACCUMULATION_STEPS
     config.defrost()
     config.TRAIN.BASE_LR = linear_scaled_lr
@@ -540,7 +676,13 @@ if __name__ == '__main__':
 
     if args.memory_limit_rate > 0 and args.memory_limit_rate < 1:
         torch.cuda.set_per_process_memory_fraction(args.memory_limit_rate)
-        usable_memory = torch.cuda.get_device_properties(0).total_memory * args.memory_limit_rate / 1e6
+        usable_memory = (
+            torch.cuda.get_device_properties(0).total_memory
+            * args.memory_limit_rate
+            / 1e6
+        )
         print(f"===========> GPU memory is limited to {usable_memory}MB", flush=True)
-    logger.info(f"Image size: {config.DATA.IMG_SIZE}, batch size: {config.DATA.BATCH_SIZE}")
+    logger.info(
+        f"Image size: {config.DATA.IMG_SIZE}, batch size: {config.DATA.BATCH_SIZE}"
+    )
     main(config, args)
