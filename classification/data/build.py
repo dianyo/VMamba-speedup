@@ -106,7 +106,9 @@ def build_dataset(is_train, config):
         prefix = 'train' if is_train else 'val'
         if config.DATA.ZIP_MODE:
             # if PART DATA defined in env
-            if os.environ.get("PART_DATA", None):
+            if os.environ.get("ONE_DATA", None):
+                ann_file = prefix + "_map_one.txt"
+            elif os.environ.get("PART_DATA", None):
                 ann_file = prefix + "_map_part.txt"
             else:
                 ann_file = prefix + "_map.txt"
