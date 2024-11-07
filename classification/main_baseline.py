@@ -1,10 +1,14 @@
 # CNN: ConvNext, EfficientNet
 # ViT: DeiT, SwinTransformer
+# facebook/convnextv2-tiny-1k-224, timm/tf_efficientnetv2_m.in1k
 
 import torch
+import torch.nn.functional as F
 from transformers import AutoModelForImageClassification, AutoFeatureExtractor
-from torch.utils.data import DataLoader
-from torchvision import transforms
+from transformers.models.convnextv2.modeling_convnextv2 import (
+    ConvNextV2Layer,
+    ConvNextV2ForImageClassification,
+)
 from tqdm import tqdm
 import argparse
 import os
@@ -13,19 +17,22 @@ from timm.utils import accuracy, AverageMeter
 from utils.utils import reduce_tensor
 from utils.logger import create_logger
 import timm
+from timm.models._efficientnet_blocks import ConvBnAct, InvertedResidual, EdgeResidual
+from timm.models.efficientnet import EfficientNet
 
 from data.build import build_dataset
 from config import get_config
 
-
+TESTING_MODEL = "convnextv2"
 TIMM_MODELS = [
     "tf_efficientnetv2_l.in1k",
     "tf_efficientnetv2_b0.in1k",
     "tf_efficientnetv2_m.in1k",
     "tf_efficientnetv2_s.in1k",
     "tf_efficientnetv2_s.in21k",
-    "tf_efficientnetv2_l.in21k"
+    "tf_efficientnetv2_l.in21k",
 ]
+layer_info = {}
 
 
 @torch.no_grad()
@@ -80,6 +87,73 @@ def validate(config, data_loader, model, is_timm_model):
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
 
+def halfmap_forward_pre_hook(module, input):
+    return input[0][:, :, ::2, ::2]
+    # return input[0]
+
+
+def halfmap_forward_hook(module, input, output):
+    # global layer_info
+    H, W = layer_info[id(module)]
+    output = F.interpolate(output, size=(H, W), mode="nearest")
+    # print(output.shape)
+    return output
+
+
+def recording_forward_hook(module, input, output):
+    global layer_info
+    layer_info[id(module)] = (output.shape[2], output.shape[3])
+    return output
+
+
+def apply_halfmap(model):
+    layer = 0
+    for name, module in model.named_modules():
+        # ConvNextV2
+        if (
+            isinstance(model, EfficientNet)
+            and (
+                isinstance(module, ConvBnAct)
+                or isinstance(module, InvertedResidual)
+                or isinstance(module, EdgeResidual)
+            )
+        ) or (
+            isinstance(model, ConvNextV2ForImageClassification)
+            and isinstance(module, ConvNextV2Layer)
+        ):
+            layer += 1
+            if layer > 2 and layer % 3 == 0:
+                print(f"Registering hook for {name}")
+                module.register_forward_pre_hook(halfmap_forward_pre_hook)
+                module.register_forward_hook(halfmap_forward_hook)
+    # sys.exit(0)
+    # for m in model.modules():
+
+
+def apply_recording_hook(model):
+    hooks = []
+    for name, module in model.named_modules():
+        # ConvNextV2
+        if (
+            isinstance(model, EfficientNet)
+            and (
+                isinstance(module, ConvBnAct)
+                or isinstance(module, InvertedResidual)
+                or isinstance(module, EdgeResidual)
+            )
+        ) or (
+            isinstance(model, ConvNextV2ForImageClassification)
+            and isinstance(module, ConvNextV2Layer)
+        ):
+            hooks.append(module.register_forward_hook(recording_forward_hook))
+    return hooks
+
+
+def remove_recording_hook(hooks):
+    for hook in hooks:
+        hook.remove()
+
+
 def main(args, config):
     # load dataset
     dataset_val, _ = build_dataset(is_train=False, config=config)
@@ -106,6 +180,14 @@ def main(args, config):
     # Setup device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
+
+    if os.environ.get("HALFMAP", False):
+        hooks = apply_recording_hook(model)
+        dummy_input = torch.randn(1, 3, 224, 224).to(device)
+        model(dummy_input)
+        # remove hooks
+        remove_recording_hook(hooks)
+        apply_halfmap(model)
 
     validate(config, data_loader_val, model, is_timm_model)
 
