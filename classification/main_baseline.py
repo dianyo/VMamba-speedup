@@ -9,6 +9,7 @@ from transformers.models.convnextv2.modeling_convnextv2 import (
     ConvNextV2Layer,
     ConvNextV2ForImageClassification,
 )
+from transformers.models.vit.modeling_vit import ViTForImageClassification, ViTLayer
 from tqdm import tqdm
 import argparse
 import os
@@ -22,6 +23,7 @@ from timm.models.efficientnet import EfficientNet
 
 from data.build import build_dataset
 from config import get_config
+import math
 
 TESTING_MODEL = "convnextv2"
 TIMM_MODELS = [
@@ -87,18 +89,39 @@ def validate(config, data_loader, model, is_timm_model):
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
 
-def halfmap_forward_pre_hook(module, input):
+def halfmap_conv_forward_pre_hook(module, input):
     return input[0][:, :, ::2, ::2]
     # return input[0]
 
 
-def halfmap_forward_hook(module, input, output):
-    # global layer_info
+def halfmap_conv_forward_hook(module, input, output):
+    global layer_info
     H, W = layer_info[id(module)]
     output = F.interpolate(output, size=(H, W), mode="nearest")
     # print(output.shape)
     return output
 
+def halfmap_vit_forward_pre_hook(module, input):
+    global layer_info
+    B, L, C = input[0].shape
+    cls_token = input[0][:, 0, :]
+    feature_map_dim = int(math.sqrt(int(L-1)))
+    layer_info[id(module)] = (feature_map_dim, feature_map_dim)
+    feature_map = input[0][:, 1:, :].reshape(-1, feature_map_dim, feature_map_dim, input[0].shape[2])
+    feature_map = feature_map[:, ::2, ::2, :].reshape(B, -1, C)
+    new_input = torch.cat([cls_token.unsqueeze(1), feature_map], dim=1)
+    # return input[0]
+    return new_input
+
+def halfmap_vit_forward_hook(module, input, output):
+    global layer_info
+    H, W = layer_info[id(module)]
+    cls_token = output[0][:, 0, :]
+    feature_map = output[0][:, 1:, :].reshape(-1, H//2, W//2, output[0].shape[2]).permute(0, 3, 1, 2)
+    feature_map = F.interpolate(feature_map, size=(H, W), mode="nearest")
+    feature_map = feature_map.permute(0, 2, 3, 1).reshape(-1, H*W, output[0].shape[2])
+    new_output = torch.cat([cls_token.unsqueeze(1), feature_map], dim=1)
+    return (new_output,)
 
 def recording_forward_hook(module, input, output):
     global layer_info
@@ -124,8 +147,14 @@ def apply_halfmap(model):
             layer += 1
             if layer > 2 and layer % 3 == 0:
                 print(f"Registering hook for {name}")
-                module.register_forward_pre_hook(halfmap_forward_pre_hook)
-                module.register_forward_hook(halfmap_forward_hook)
+                module.register_forward_pre_hook(halfmap_conv_forward_pre_hook)
+                module.register_forward_hook(halfmap_conv_forward_hook)
+        elif isinstance(model, ViTForImageClassification) and isinstance(module, ViTLayer):
+            layer += 1
+            if layer > 2 and layer % 3 == 0:
+                print(f"Registering hook for {name}")
+                module.register_forward_pre_hook(halfmap_vit_forward_pre_hook)
+                module.register_forward_hook(halfmap_vit_forward_hook)
     # sys.exit(0)
     # for m in model.modules():
 
