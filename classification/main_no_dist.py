@@ -313,10 +313,13 @@ def main(config, args):
             return
         save_module_id_mapping(model)
         if not config.THROUGHPUT_MODE:
-            for n_tome in [0, 1024]:
-                os.environ["TOME_N"] = str(n_tome)
-                logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
-                acc1, acc5, loss = validate(config, data_loader_val, model)
+            # for n_tome in [0, 1024]:
+            #     os.environ["TOME_N"] = str(n_tome)
+            if int(os.environ.get("QUATERMAP", 0)) > 0:
+                logger.info(f"Applying quater map to the model")
+            else:
+                logger.info("Baseline VMamba model")
+            acc1, acc5, loss = validate(config, data_loader_val, model)
             logger.info(
                 f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%"
             )

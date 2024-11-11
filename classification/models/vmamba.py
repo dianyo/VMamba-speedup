@@ -1113,13 +1113,15 @@ class SS2Dv2:
             )
             y = y_col
         else:
-            tome_n = int(os.environ.get("TOME_N", 0))
+            layer_name = record_utils.reversed_module_id_mapping.get(id(self), None)
+            apply_quater_map = int(os.environ.get("QUATERMAP", 0)) > 0
             sparse = False
             if (
-                tome_n > 0
+                apply_quater_map
                 and record_utils.n_vss_block > 2
                 and record_utils.n_vss_block % 3 == 0
             ):
+                print(f"apply_quater_map in {layer_name} block")
                 # if tome_n > 0:
                 # Index token merging on xs
                 # print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
@@ -1264,7 +1266,6 @@ class SS2Dv2:
             original_dim = xs.shape[1]
             scan_using_mean = False
 
-            layer_name = record_utils.reversed_module_id_mapping.get(id(self), None)
             if layer_name in os.environ.get("SELECTED_LAYERS", "").split(","):
                 scan_using_mean = True
 

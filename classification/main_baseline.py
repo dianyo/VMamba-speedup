@@ -6,12 +6,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import Conv2d
 from transformers import AutoModelForImageClassification, AutoFeatureExtractor
 from transformers.models.convnextv2.modeling_convnextv2 import (
     ConvNextV2Layer,
     ConvNextV2ForImageClassification,
 )
-from transformers.models.vit.modeling_vit import ViTForImageClassification, ViTLayer
+from transformers.models.vit.modeling_vit import ViTForImageClassification, ViTSelfAttention
 from transformers.models.swin.modeling_swin import (
     SwinForImageClassification,
     SwinSelfAttention,
@@ -282,29 +283,41 @@ def recording_forward_hook(module, input, output):
 
 def apply_quatermap(model):
     layer = 0
+    efficientnet_should_apply = False
+    convnext_should_apply = False
     for name, module in model.named_modules():
-        # ConvNextV2
-        if (
-            isinstance(model, EfficientNet)
-            and (
+        if isinstance(model, EfficientNet):
+            if (
                 isinstance(module, ConvBnAct)
                 or isinstance(module, InvertedResidual)
                 or isinstance(module, EdgeResidual)
-            )
-        ) or (
-            isinstance(model, ConvNextV2ForImageClassification)
-            and isinstance(module, ConvNextV2Layer)
-        ):
-            layer += 1
-            if layer > 2 and layer % 3 == 0:
+            ):
+                layer += 1
+                if layer > 2 and layer % 3 == 0:
+                    efficientnet_should_apply = True
+                else:
+                    efficientnet_should_apply = False
+            if isinstance(module, Conv2d) and efficientnet_should_apply:
+                print(f"Registering hook for {model.__class__.__name__} layer {name}")
+                module.register_forward_pre_hook(quatermap_conv_forward_pre_hook)
+                module.register_forward_hook(quatermap_conv_forward_hook)
+        elif isinstance(model, ConvNextV2ForImageClassification):
+            if isinstance(module, ConvNextV2Layer):
+                layer += 1
+                if layer > 2 and layer % 3 == 0:
+                    convnext_should_apply = True
+                else:
+                    convnext_should_apply = False
+
+            if isinstance(module, Conv2d) and convnext_should_apply:
                 print(f"Registering hook for {model.__class__.__name__} layer {name}")
                 module.register_forward_pre_hook(quatermap_conv_forward_pre_hook)
                 module.register_forward_hook(quatermap_conv_forward_hook)
         elif isinstance(model, ViTForImageClassification) and isinstance(
-            module, ViTLayer
+            module, ViTSelfAttention
         ):
             layer += 1
-            if layer > 2 and layer % 2 == 0:
+            if layer > 2 and layer % 3 == 0:
                 print(f"Registering hook for {model.__class__.__name__} layer {name}")
                 module.register_forward_pre_hook(quatermap_vit_forward_pre_hook)
                 module.register_forward_hook(quatermap_vit_forward_hook)
@@ -312,7 +325,7 @@ def apply_quatermap(model):
             module, SwinSelfAttention
         ):
             layer += 1
-            if layer > 2 and layer % 1 == 0:
+            if layer > 2 and layer % 3 == 0:
                 print(f"Registering hook for {model.__class__.__name__} layer {name}")
                 module.forward = types.MethodType(patch_swin_attention_forward, module)
                 module.register_forward_pre_hook(quatermap_swin_forward_pre_hook)
@@ -328,13 +341,13 @@ def apply_recording_hook(model):
         if (
             isinstance(model, EfficientNet)
             and (
-                isinstance(module, ConvBnAct)
-                or isinstance(module, InvertedResidual)
-                or isinstance(module, EdgeResidual)
+                isinstance(module, Conv2d)
+                # or isinstance(module, InvertedResidual)
+                # or isinstance(module, EdgeResidual)
             )
         ) or (
             isinstance(model, ConvNextV2ForImageClassification)
-            and isinstance(module, ConvNextV2Layer)
+            and isinstance(module, Conv2d)
         ):
             hooks.append(module.register_forward_hook(recording_forward_hook))
     return hooks
