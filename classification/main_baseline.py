@@ -1,8 +1,10 @@
 # CNN: ConvNext, EfficientNet
 # ViT: DeiT, SwinTransformer
 # facebook/convnextv2-tiny-1k-224, timm/tf_efficientnetv2_m.in1k
+# facebook/deit-base-patch16-224, microsoft/swin-tiny-patch4-window7-224
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoModelForImageClassification, AutoFeatureExtractor
 from transformers.models.convnextv2.modeling_convnextv2 import (
@@ -10,6 +12,10 @@ from transformers.models.convnextv2.modeling_convnextv2 import (
     ConvNextV2ForImageClassification,
 )
 from transformers.models.vit.modeling_vit import ViTForImageClassification, ViTLayer
+from transformers.models.swin.modeling_swin import (
+    SwinForImageClassification,
+    SwinSelfAttention,
+)
 from tqdm import tqdm
 import argparse
 import os
@@ -24,6 +30,10 @@ from timm.models.efficientnet import EfficientNet
 from data.build import build_dataset
 from config import get_config
 import math
+import sys
+
+from typing import Optional
+import types
 
 TESTING_MODEL = "convnextv2"
 TIMM_MODELS = [
@@ -89,39 +99,180 @@ def validate(config, data_loader, model, is_timm_model):
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
 
-def halfmap_conv_forward_pre_hook(module, input):
+def quatermap_conv_forward_pre_hook(module, input):
     return input[0][:, :, ::2, ::2]
     # return input[0]
 
 
-def halfmap_conv_forward_hook(module, input, output):
+def quatermap_conv_forward_hook(module, input, output):
     global layer_info
     H, W = layer_info[id(module)]
     output = F.interpolate(output, size=(H, W), mode="nearest")
     # print(output.shape)
     return output
 
-def halfmap_vit_forward_pre_hook(module, input):
+
+def quatermap_vit_forward_pre_hook(module, input):
     global layer_info
     B, L, C = input[0].shape
     cls_token = input[0][:, 0, :]
-    feature_map_dim = int(math.sqrt(int(L-1)))
+    feature_map_dim = int(math.sqrt(int(L - 1)))
     layer_info[id(module)] = (feature_map_dim, feature_map_dim)
-    feature_map = input[0][:, 1:, :].reshape(-1, feature_map_dim, feature_map_dim, input[0].shape[2])
+    feature_map = input[0][:, 1:, :].reshape(
+        -1, feature_map_dim, feature_map_dim, input[0].shape[2]
+    )
     feature_map = feature_map[:, ::2, ::2, :].reshape(B, -1, C)
     new_input = torch.cat([cls_token.unsqueeze(1), feature_map], dim=1)
     # return input[0]
     return new_input
 
-def halfmap_vit_forward_hook(module, input, output):
+
+def quatermap_vit_forward_hook(module, input, output):
     global layer_info
     H, W = layer_info[id(module)]
     cls_token = output[0][:, 0, :]
-    feature_map = output[0][:, 1:, :].reshape(-1, H//2, W//2, output[0].shape[2]).permute(0, 3, 1, 2)
+    feature_map = (
+        output[0][:, 1:, :]
+        .reshape(-1, H // 2, W // 2, output[0].shape[2])
+        .permute(0, 3, 1, 2)
+    )
     feature_map = F.interpolate(feature_map, size=(H, W), mode="nearest")
-    feature_map = feature_map.permute(0, 2, 3, 1).reshape(-1, H*W, output[0].shape[2])
+    feature_map = feature_map.permute(0, 2, 3, 1).reshape(-1, H * W, output[0].shape[2])
     new_output = torch.cat([cls_token.unsqueeze(1), feature_map], dim=1)
     return (new_output,)
+
+
+def quatermap_swin_forward_pre_hook(module, input):
+    global layer_info
+    B, L, C = input[0].shape
+    feature_map_dim = int(math.sqrt(int(L)))
+
+    # if feature_map_dim <= module.window_size:
+    #     layer_info[id(module)] = (feature_map_dim, feature_map_dim)
+    #     return input
+    layer_info[id(module)] = (feature_map_dim, feature_map_dim)
+    feature_map = input[0].reshape(
+        -1, feature_map_dim, feature_map_dim, input[0].shape[2]
+    )
+    new_input = feature_map[:, ::2, ::2, :]
+    new_input_dim = (new_input.shape[1], new_input.shape[2])
+    new_input = new_input.reshape(B, -1, C)
+    new_attention_mask = input[1]
+    if new_attention_mask is not None:
+        new_attention_mask = new_attention_mask.reshape(
+            -1, feature_map_dim, feature_map_dim, feature_map_dim, feature_map_dim
+        )
+        new_attention_mask = new_attention_mask[:, ::2, ::2, ::2, ::2]
+        new_attention_mask = new_attention_mask.reshape(
+            -1,
+            new_attention_mask.shape[1] * new_attention_mask.shape[2],
+            new_attention_mask.shape[3] * new_attention_mask.shape[4],
+        )
+    return (new_input, new_attention_mask, input[2], input[3])
+
+
+def quatermap_swin_forward_hook(module, input, output):
+    global layer_info
+    H, W = layer_info[id(module)]
+    dim = int(math.sqrt(output[0].shape[1]))
+    feature_map = (
+        output[0].reshape(-1, dim, dim, output[0].shape[2]).permute(0, 3, 1, 2)
+    )
+    feature_map = F.interpolate(feature_map, size=(H, W), mode="nearest")
+    new_output = feature_map.permute(0, 2, 3, 1).reshape(-1, H * W, output[0].shape[2])
+    return (new_output,)
+
+
+def patch_swin_attention_forward(
+    self,
+    hidden_states: torch.Tensor,
+    attention_mask: Optional[torch.FloatTensor] = None,
+    head_mask: Optional[torch.FloatTensor] = None,
+    output_attentions: Optional[bool] = False,
+):
+    # print("Patched SwinSelfAttention -------------------")
+    # print("hidden_states", hidden_states.shape)
+    batch_size, dim, num_channels = hidden_states.shape
+    mixed_query_layer = self.query(hidden_states)
+
+    key_layer = self.transpose_for_scores(self.key(hidden_states))
+    value_layer = self.transpose_for_scores(self.value(hidden_states))
+    query_layer = self.transpose_for_scores(mixed_query_layer)
+    # print("key_layer", key_layer.shape)
+    # print("value_layer", value_layer.shape)
+    # print("query_layer", query_layer.shape)
+    # Take the dot product between "query" and "key" to get the raw attention scores.
+    attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+
+    attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+    # print("attention_scores", attention_scores.shape)
+    relative_position_bias = self.relative_position_bias_table[
+        self.relative_position_index.view(-1)
+    ]
+    # print("self.relative_position_bias_table", self.relative_position_bias_table.shape)
+    # print("self.relative_position_index", self.relative_position_index)
+    # print("self.relative_position_index", self.relative_position_index.shape)
+    # print("relative_position_bias", relative_position_bias.shape)
+    relative_position_bias = relative_position_bias.view(
+        self.window_size[0] * self.window_size[1],
+        self.window_size[0] * self.window_size[1],
+        -1,
+    )
+
+    if (
+        self.window_size[0] != attention_scores.shape[-2]
+        or self.window_size[1] != attention_scores.shape[-1]
+    ):
+        relative_position_bias = relative_position_bias.view(
+            self.window_size[0],
+            self.window_size[1],
+            self.window_size[0],
+            self.window_size[1],
+            -1,
+        )
+        relative_position_bias = relative_position_bias[
+            ::2, ::2, ::2, ::2, :
+        ].contiguous()
+        relative_position_bias = relative_position_bias.view(
+            relative_position_bias.shape[0] * relative_position_bias.shape[1],
+            relative_position_bias.shape[2] * relative_position_bias.shape[3],
+            -1,
+        )
+        # print("relative_position_bias", relative_position_bias.shape)
+
+    relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+    attention_scores = attention_scores + relative_position_bias.unsqueeze(0)
+
+    if attention_mask is not None:
+        # Apply the attention mask is (precomputed for all layers in SwinModel forward() function)
+        mask_shape = attention_mask.shape[0]
+        attention_scores = attention_scores.view(
+            batch_size // mask_shape, mask_shape, self.num_attention_heads, dim, dim
+        )
+        attention_scores = attention_scores + attention_mask.unsqueeze(1).unsqueeze(0)
+        attention_scores = attention_scores.view(-1, self.num_attention_heads, dim, dim)
+
+    # Normalize the attention scores to probabilities.
+    attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+
+    # This is actually dropping out entire tokens to attend to, which might
+    # seem a bit unusual, but is taken from the original Transformer paper.
+    attention_probs = self.dropout(attention_probs)
+
+    # Mask heads if we want to
+    if head_mask is not None:
+        attention_probs = attention_probs * head_mask
+
+    context_layer = torch.matmul(attention_probs, value_layer)
+    context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+    new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+    context_layer = context_layer.view(new_context_layer_shape)
+
+    outputs = (
+        (context_layer, attention_probs) if output_attentions else (context_layer,)
+    )
+    return outputs
+
 
 def recording_forward_hook(module, input, output):
     global layer_info
@@ -129,7 +280,7 @@ def recording_forward_hook(module, input, output):
     return output
 
 
-def apply_halfmap(model):
+def apply_quatermap(model):
     layer = 0
     for name, module in model.named_modules():
         # ConvNextV2
@@ -146,15 +297,26 @@ def apply_halfmap(model):
         ):
             layer += 1
             if layer > 2 and layer % 3 == 0:
-                print(f"Registering hook for {name}")
-                module.register_forward_pre_hook(halfmap_conv_forward_pre_hook)
-                module.register_forward_hook(halfmap_conv_forward_hook)
-        elif isinstance(model, ViTForImageClassification) and isinstance(module, ViTLayer):
+                print(f"Registering hook for {model.__class__.__name__} layer {name}")
+                module.register_forward_pre_hook(quatermap_conv_forward_pre_hook)
+                module.register_forward_hook(quatermap_conv_forward_hook)
+        elif isinstance(model, ViTForImageClassification) and isinstance(
+            module, ViTLayer
+        ):
             layer += 1
-            if layer > 2 and layer % 3 == 0:
-                print(f"Registering hook for {name}")
-                module.register_forward_pre_hook(halfmap_vit_forward_pre_hook)
-                module.register_forward_hook(halfmap_vit_forward_hook)
+            if layer > 2 and layer % 2 == 0:
+                print(f"Registering hook for {model.__class__.__name__} layer {name}")
+                module.register_forward_pre_hook(quatermap_vit_forward_pre_hook)
+                module.register_forward_hook(quatermap_vit_forward_hook)
+        elif isinstance(model, SwinForImageClassification) and isinstance(
+            module, SwinSelfAttention
+        ):
+            layer += 1
+            if layer > 2 and layer % 1 == 0:
+                print(f"Registering hook for {model.__class__.__name__} layer {name}")
+                module.forward = types.MethodType(patch_swin_attention_forward, module)
+                module.register_forward_pre_hook(quatermap_swin_forward_pre_hook)
+                module.register_forward_hook(quatermap_swin_forward_hook)
     # sys.exit(0)
     # for m in model.modules():
 
@@ -205,18 +367,17 @@ def main(args, config):
     else:
         model = AutoModelForImageClassification.from_pretrained(args.model_name)
     model.eval()
-
     # Setup device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
 
-    if os.environ.get("HALFMAP", False):
+    if os.environ.get("QUATERMAP", False):
         hooks = apply_recording_hook(model)
         dummy_input = torch.randn(1, 3, 224, 224).to(device)
         model(dummy_input)
         # remove hooks
         remove_recording_hook(hooks)
-        apply_halfmap(model)
+        apply_quatermap(model)
 
     validate(config, data_loader_val, model, is_timm_model)
 
