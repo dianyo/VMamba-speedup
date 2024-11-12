@@ -6,6 +6,127 @@ import os.path as osp
 from mmengine.config import Config, DictAction
 from mmengine.runner import Runner
 import model
+from plot_utils import save_module_id_mapping
+import types
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+from typing import Optional
+from mmseg.models.backbones.swin import WindowMSA
+
+layer_info = {}
+def quatermap_swin_forward_pre_hook(module, input, kwargs):
+    global layer_info
+    B, L, C = input[0].shape
+    feature_map_dim = int(math.sqrt(int(L)))
+
+    # if feature_map_dim <= module.window_size:
+    #     layer_info[id(module)] = (feature_map_dim, feature_map_dim)
+    #     return input
+    layer_info[id(module)] = (feature_map_dim, feature_map_dim)
+    feature_map = input[0].reshape(
+        -1, feature_map_dim, feature_map_dim, input[0].shape[2]
+    )
+    new_input = feature_map[:, ::2, ::2, :]
+    new_input = new_input.reshape(B, -1, C)
+    new_args = [new_input]
+    new_kwargs = {}
+    if kwargs['mask'] is not None:
+        new_attention_mask = kwargs['mask']
+        new_attention_mask = new_attention_mask.reshape(
+            -1, feature_map_dim, feature_map_dim, feature_map_dim, feature_map_dim
+        )
+        new_attention_mask = new_attention_mask[:, ::2, ::2, ::2, ::2]
+        new_attention_mask = new_attention_mask.reshape(
+            -1,
+            new_attention_mask.shape[1] * new_attention_mask.shape[2],
+            new_attention_mask.shape[3] * new_attention_mask.shape[4],
+        )
+        new_kwargs['mask'] = new_attention_mask
+    return (new_args, new_kwargs)
+
+def quatermap_swin_forward_hook(module, input, output):
+    global layer_info
+    H, W = layer_info[id(module)]
+    dim = int(math.sqrt(output.shape[1]))
+    feature_map = (
+        output.reshape(-1, dim, dim, output.shape[2]).permute(0, 3, 1, 2)
+    )
+    feature_map = F.interpolate(feature_map, size=(H, W), mode="nearest")
+    new_output = feature_map.permute(0, 2, 3, 1).reshape(-1, H * W, output.shape[2])
+    return new_output
+
+
+def patch_swin_attention_forward(
+    self,
+    x, mask=None
+):
+    B, N, C = x.shape
+    qkv = self.qkv(x).reshape(B, N, 3, self.num_heads,
+                                C // self.num_heads).permute(2, 0, 3, 1, 4)
+    # make torchscript happy (cannot use tensor as tuple)
+    q, k, v = qkv[0], qkv[1], qkv[2]
+
+    q = q * self.scale
+    attn = (q @ k.transpose(-2, -1))
+
+    relative_position_bias = self.relative_position_bias_table[
+        self.relative_position_index.view(-1)].view(
+            self.window_size[0] * self.window_size[1],
+            self.window_size[0] * self.window_size[1],
+            -1)  # Wh*Ww,Wh*Ww,nH
+
+    if (
+        self.window_size[0] != attn.shape[-2]
+        or self.window_size[1] != attn.shape[-1]
+    ):
+        relative_position_bias = relative_position_bias.view(
+            self.window_size[0],
+            self.window_size[1],
+            self.window_size[0],
+            self.window_size[1],
+            -1,
+        )
+        relative_position_bias = relative_position_bias[
+            ::2, ::2, ::2, ::2, :
+        ].contiguous()
+        relative_position_bias = relative_position_bias.view(
+            relative_position_bias.shape[0] * relative_position_bias.shape[1],
+            relative_position_bias.shape[2] * relative_position_bias.shape[3],
+            -1,
+        )
+
+    relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+    attn = attn + relative_position_bias.unsqueeze(0)
+
+    if mask is not None:
+        nW = mask.shape[0]
+        attn = attn.view(B // nW, nW, self.num_heads, N,
+                            N) + mask.unsqueeze(1).unsqueeze(0)
+        attn = attn.view(-1, self.num_heads, N, N)
+
+    attn = self.softmax(attn)
+
+    attn = self.attn_drop(attn)
+
+    x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+    x = self.proj(x)
+    x = self.proj_drop(x)
+    return x
+
+def apply_quatermap(model):
+    layer = 0
+    for name, module in model.named_modules():
+        if isinstance(
+            module, WindowMSA
+        ):
+            layer += 1
+            if layer > 2 and layer % 3 == 0:
+                print(f"Registering hook for {model.__class__.__name__} layer {name}")
+                module.forward = types.MethodType(patch_swin_attention_forward, module)
+                module.register_forward_pre_hook(quatermap_swin_forward_pre_hook, with_kwargs=True)
+                module.register_forward_hook(quatermap_swin_forward_hook)
 
 # TODO: support fuse_conv_bn, visualization, and format_only
 def parse_args():
@@ -114,7 +235,10 @@ def main():
 
     # build the runner from config
     runner = Runner.from_cfg(cfg)
-
+    save_module_id_mapping(runner.model)
+    if os.getenv("QUATERMAP", False):
+        apply_quatermap(runner.model)
+    
     # start testing
     runner.test()
 

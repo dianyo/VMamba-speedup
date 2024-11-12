@@ -1,6 +1,17 @@
+import os
 # dataset settings
+PART_DATA = int(os.environ.get("PART_DATA", 0))
+DEBUG = int(os.environ.get("DEBUG", 0))
 dataset_type = 'ADE20KDataset'
-data_root = 'data/ade/ADEChallengeData2016'
+
+if PART_DATA:
+    data_root = 'data/ade/ADEChallengeData2016_small'
+else:
+    data_root = 'data/ade/ADEChallengeData2016'
+
+if DEBUG:
+    data_root = 'segmentation/' + data_root
+
 crop_size = (512, 512)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -51,7 +62,7 @@ train_dataloader = dict(
             img_path='images/training', seg_map_path='annotations/training'),
         pipeline=train_pipeline))
 val_dataloader = dict(
-    batch_size=1,
+    batch_size=int(os.environ.get("BATCH_SIZE", 1)),
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),

@@ -1,3 +1,4 @@
+import os
 _base_ = [
     '../_base_/models/upernet_swin.py', '../_base_/datasets/ade20k.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
@@ -8,7 +9,7 @@ checkpoint_file = 'https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/s
 model = dict(
     data_preprocessor=data_preprocessor,
     backbone=dict(
-        init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
+        # init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
         embed_dims=96,
         depths=[2, 2, 6, 2],
         num_heads=[3, 6, 12, 24],
@@ -48,5 +49,5 @@ param_scheduler = [
 
 # By default, models are trained on 8 GPUs with 2 images per GPU
 train_dataloader = dict(batch_size=2)
-val_dataloader = dict(batch_size=1)
+val_dataloader = dict(batch_size=int(os.getenv("BATCH_SIZE", 1)))
 test_dataloader = val_dataloader
