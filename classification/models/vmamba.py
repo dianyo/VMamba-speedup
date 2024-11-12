@@ -1116,12 +1116,42 @@ class SS2Dv2:
             layer_name = record_utils.reversed_module_id_mapping.get(id(self), None)
             apply_quater_map = int(os.environ.get("QUATERMAP", 0)) > 0
             sparse = False
-            if (
-                apply_quater_map
-                and record_utils.n_vss_block > 2
-                and record_utils.n_vss_block % 3 == 0
-            ):
-                if layer_name not in record_utils.already_printed_layers:
+            # if (
+            #     apply_quater_map
+            #     and record_utils.n_vss_block > 2
+            #     and record_utils.n_vss_block % 3 == 0
+            # ):
+            if apply_quater_map:
+                quater_map_strategy = os.environ.get(
+                    "QUATERMAP_STRATEGY", "none_first_layer"
+                )
+                if quater_map_strategy == "none_first_layer":
+                    quater_map_freq = int(os.environ.get("QUATERMAP_FREQ", 3))
+                    if (
+                        not "layers.0" in layer_name
+                    ) and record_utils.n_vss_block % quater_map_freq == 0:
+                        x = x.view(x.shape[0], x.shape[1], H, W)
+                        x = x[:, :, ::2, ::2].contiguous()
+                        sparse = True
+                elif quater_map_strategy == "deepest_layer":
+                    if "layers.2" in layer_name:
+                        x = x.view(x.shape[0], x.shape[1], H, W)
+                        x = x[:, :, ::2, ::2].contiguous()
+                        sparse = True
+                elif quater_map_strategy == "full_layer":
+                    layer = os.environ.get("QUATERMAP_LAYER", "layers.0")
+                    if layer in layer_name:
+                        x = x.view(x.shape[0], x.shape[1], H, W)
+                        x = x[:, :, ::2, ::2].contiguous()
+                        sparse = True
+                elif quater_map_strategy == "all_layers":
+                    quater_map_freq = int(os.environ.get("QUATERMAP_FREQ", 3))
+                    if record_utils.n_vss_block % quater_map_freq == 0:
+                        x = x.view(x.shape[0], x.shape[1], H, W)
+                        x = x[:, :, ::2, ::2].contiguous()
+                        sparse = True
+
+                if sparse and (layer_name not in record_utils.already_printed_layers):
                     record_utils.already_printed_layers.add(layer_name)
                     print(f"apply_quater_map in {layer_name} block")
                 # if tome_n > 0:
@@ -1139,11 +1169,11 @@ class SS2Dv2:
                 # x = x.view(B, D, H, W)
                 # torch.cuda.nvtx.range_pop()
 
-                torch.cuda.nvtx.range_push(f"Special H W Sliding")
-                x = x.view(x.shape[0], x.shape[1], H, W)
-                x = x[:, :, ::2, ::2].contiguous()
-                torch.cuda.nvtx.range_pop()
-                sparse = True
+                # torch.cuda.nvtx.range_push(f"Special H W Sliding")
+                # x = x.view(x.shape[0], x.shape[1], H, W)
+                # x = x[:, :, ::2, ::2].contiguous()
+                # torch.cuda.nvtx.range_pop()
+                # sparse = True
                 # print(src_idx)
             if False:
                 xs, mask, mask_transpose = CrossScan.apply(x, src_idx)

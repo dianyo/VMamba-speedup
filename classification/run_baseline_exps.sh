@@ -1,4 +1,4 @@
-# Baseline
+#!/bin/bash
 # export ONE_DATA=1
 # ConvNextv2
 echo "Running ConvNextv2 baselines"
