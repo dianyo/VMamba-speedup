@@ -1121,7 +1121,9 @@ class SS2Dv2:
                 and record_utils.n_vss_block > 2
                 and record_utils.n_vss_block % 3 == 0
             ):
-                print(f"apply_quater_map in {layer_name} block")
+                if layer_name not in record_utils.already_printed_layers:
+                    record_utils.already_printed_layers.add(layer_name)
+                    print(f"apply_quater_map in {layer_name} block")
                 # if tome_n > 0:
                 # Index token merging on xs
                 # print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
