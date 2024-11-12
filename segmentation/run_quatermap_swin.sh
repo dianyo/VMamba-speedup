@@ -1,4 +1,4 @@
-# Baseline
+#!/bin/bash
 echo "Running Swin baselines for segmentation"
 
 echo "Running tiny"

@@ -1,4 +1,4 @@
-# Baseline
+#!/bin/bash
 echo "Running VMamba baselines for segmentation"
 
 echo "Running tiny"
