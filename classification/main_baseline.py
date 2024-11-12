@@ -12,7 +12,10 @@ from transformers.models.convnextv2.modeling_convnextv2 import (
     ConvNextV2Layer,
     ConvNextV2ForImageClassification,
 )
-from transformers.models.vit.modeling_vit import ViTForImageClassification, ViTSelfAttention
+from transformers.models.vit.modeling_vit import (
+    ViTForImageClassification,
+    ViTSelfAttention,
+)
 from transformers.models.swin.modeling_swin import (
     SwinForImageClassification,
     SwinSelfAttention,
