@@ -1121,39 +1121,55 @@ class SS2Dv2:
             #     and record_utils.n_vss_block > 2
             #     and record_utils.n_vss_block % 3 == 0
             # ):
+
+            def quatermap(x, interval, n_out_of_interval=1):
+                x = x.view(x.shape[0], x.shape[1], H, W)
+                if n_out_of_interval == 1:
+                    return x[:, :, ::interval, ::interval].contiguous()
+                else:
+                    indices = torch.arange(
+                        0, math.ceil(H / interval) * interval, device=x.device
+                    )
+                    indices = indices.view(-1, interval)[
+                        :, :n_out_of_interval
+                    ].flatten()
+                    indices = indices[indices < H]
+                    return x[:, :, indices, :][:, :, :, indices].contiguous()
+
             if apply_quater_map:
+                pixel_interval = int(os.environ.get("QUATERMAP_INTERVAL", 2))
                 quater_map_strategy = os.environ.get(
                     "QUATERMAP_STRATEGY", "none_first_layer"
                 )
+                quater_map_freq = int(os.environ.get("QUATERMAP_FREQ", 3))
+                layer = os.environ.get("QUATERMAP_LAYER", "layers.0")
+                n_out_of_interval = int(
+                    os.environ.get("QUATERMAP_N_OUT_OF_INTERVAL", 1)
+                )
+
                 if quater_map_strategy == "none_first_layer":
-                    quater_map_freq = int(os.environ.get("QUATERMAP_FREQ", 3))
                     if (
                         not "layers.0" in layer_name
                     ) and record_utils.n_vss_block % quater_map_freq == 0:
-                        x = x.view(x.shape[0], x.shape[1], H, W)
-                        x = x[:, :, ::2, ::2].contiguous()
+                        x = quatermap(x, pixel_interval, n_out_of_interval)
                         sparse = True
                 elif quater_map_strategy == "deepest_layer":
                     if "layers.2" in layer_name:
-                        x = x.view(x.shape[0], x.shape[1], H, W)
-                        x = x[:, :, ::2, ::2].contiguous()
+                        x = quatermap(x, pixel_interval, n_out_of_interval)
                         sparse = True
                 elif quater_map_strategy == "full_layer":
-                    layer = os.environ.get("QUATERMAP_LAYER", "layers.0")
                     if layer in layer_name:
-                        x = x.view(x.shape[0], x.shape[1], H, W)
-                        x = x[:, :, ::2, ::2].contiguous()
+                        x = quatermap(x, pixel_interval, n_out_of_interval)
                         sparse = True
                 elif quater_map_strategy == "all_layers":
-                    quater_map_freq = int(os.environ.get("QUATERMAP_FREQ", 3))
                     if record_utils.n_vss_block % quater_map_freq == 0:
-                        x = x.view(x.shape[0], x.shape[1], H, W)
-                        x = x[:, :, ::2, ::2].contiguous()
+                        x = quatermap(x, pixel_interval, n_out_of_interval)
                         sparse = True
 
                 if sparse and (layer_name not in record_utils.already_printed_layers):
                     record_utils.already_printed_layers.add(layer_name)
                     print(f"apply_quater_map in {layer_name} block")
+                new_H, new_W = x.shape[2], x.shape[3]
                 # if tome_n > 0:
                 # Index token merging on xs
                 # print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
@@ -1171,7 +1187,7 @@ class SS2Dv2:
 
                 # torch.cuda.nvtx.range_push(f"Special H W Sliding")
                 # x = x.view(x.shape[0], x.shape[1], H, W)
-                # x = x[:, :, ::2, ::2].contiguous()
+                # x = x[:, :, ::pixel_interval, ::pixel_interval].contiguous()
                 # torch.cuda.nvtx.range_pop()
                 # sparse = True
                 # print(src_idx)
@@ -1386,7 +1402,7 @@ class SS2Dv2:
                 # # ys = torch.stack([new_ys_1, new_ys_2, new_ys_3, new_ys_4], dim=1)
                 # ys = ys.view(B, K, -1, H, W)
             elif sparse:
-                ys = ys.view(B, K, -1, math.ceil(H / 2), math.ceil(W / 2))
+                ys = ys.view(B, K, -1, new_H, new_W)
             else:
                 ys = ys.view(B, K, -1, H, W)
             # print(f"Sparsity of ys: {torch.sum(ys == 0).item() / ys.numel()}")
@@ -1413,7 +1429,7 @@ class SS2Dv2:
         # print(f"Sparsity of y: {torch.sum(y == 0).item() / y.numel()}")
         if sparse:
             torch.cuda.nvtx.range_push(f"Upsampling Back")
-            y = y.view(B, -1, math.ceil(H / 2), math.ceil(W / 2))
+            y = y.view(B, -1, new_H, new_W)
             y = F.interpolate(y, size=(H, W))
             torch.cuda.nvtx.range_pop()
         else:
@@ -2366,8 +2382,8 @@ class VSSM(nn.Module):
             ),
         }
 
-        model = copy.deepcopy(self)
-        model.cuda().eval()
+        # model = copy.deepcopy(self)
+        model = self.cuda().eval()
 
         input = torch.randn((1, *shape), device=next(model.parameters()).device)
         params = parameter_count(model)[""]

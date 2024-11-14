@@ -15,6 +15,7 @@ import argparse
 import datetime
 import tqdm
 import numpy as np
+import sys
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -183,6 +184,7 @@ def parse_option():
 
     # Quantization
     parser.add_argument("--fp16", action="store_true", help="use 16-bit float")
+    parser.add_argument("--flops", action="store_true", help="calculate flops")
     args, unparsed = parser.parse_known_args()
     args.batch_size = int(os.environ.get("BATCH_SIZE", args.batch_size))
     args.img_size = int(os.environ.get("IMG_SIZE", 224))
@@ -221,14 +223,6 @@ def main(config, args):
     model = build_model(config)
 
     # if dist.get_rank() == 0:
-    # if hasattr(model, 'flops'):
-    #     logger.info(str(model))
-    #     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    #     logger.info(f"number of params: {n_parameters}")
-    #     flops = model.flops()
-    #     logger.info(f"number of GFLOPs: {flops / 1e9}")
-    # else:
-    #     logger.info(flop_count_str(FlopCountAnalysis(model, (dataset_val[0][0][None],))))
     # logger.info(str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
@@ -312,6 +306,21 @@ def main(config, args):
             )
             return
         save_module_id_mapping(model)
+
+        if args.flops:
+            if hasattr(model, "flops"):
+                # logger.info(str(model))
+                # n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                # logger.info(f"number of params: {n_parameters}")
+                flops = model.flops()
+                logger.info(f"number of GFLOPs: {flops / 1e9}")
+            else:
+                logger.info(
+                    flop_count_str(
+                        FlopCountAnalysis(model, (dataset_val[0][0][None].cuda(),))
+                    )
+                )
+            return
         if not config.THROUGHPUT_MODE:
             # for n_tome in [0, 1024]:
             #     os.environ["TOME_N"] = str(n_tome)

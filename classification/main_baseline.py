@@ -38,6 +38,8 @@ import sys
 
 from typing import Optional
 import types
+from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count
+
 
 TESTING_MODEL = "convnextv2"
 TIMM_MODELS = [
@@ -395,6 +397,22 @@ def main(args, config):
         remove_recording_hook(hooks)
         apply_quatermap(model)
 
+    if args.flops:
+        n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        logger.info(f"number of params: {n_parameters}")
+        if hasattr(model, "flops"):
+            # logger.info(str(model))
+            # n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            # logger.info(f"number of params: {n_parameters}")
+            flops = model.flops()
+            logger.info(f"number of GFLOPs: {flops / 1e9}")
+        else:
+            logger.info(
+                flop_count_str(
+                    FlopCountAnalysis(model, (dataset_val[0][0][None].cuda(),))
+                )
+            )
+        return
     validate(config, data_loader_val, model, is_timm_model)
 
 
@@ -495,6 +513,12 @@ def parse_args():
         type=str,
         default="facebook/convnextv2-tiny-1k-224",
         help="Model name to use",
+    )
+
+    parser.add_argument(
+        "--flops",
+        action="store_true",
+        help="Calculate flops",
     )
     args, unparsed = parser.parse_known_args()
     args.batch_size = int(os.environ.get("BATCH_SIZE", args.batch_size))
