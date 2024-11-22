@@ -354,10 +354,10 @@ def main(config, args):
 
     if config.THROUGHPUT_MODE:
         logger.info(f"throughput mode ==============================")
-        for n_tome in [0, 2048]:
-            os.environ["TOME_N"] = str(n_tome)
-            logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
-            throughput(data_loader_val, model, logger)
+        if int(os.environ.get("QUATERMAP", 0)) > 0:
+            logger.info(f"Applying quater map to the model")
+        logger.info(f"Token Merging Number: {os.environ.get('TOME_N', 0)}")
+        throughput(data_loader_val, model, logger)
         # if model_ema is not None:
         #     torch.cuda.synchronize()
         #     torch.cuda.empty_cache()

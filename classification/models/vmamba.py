@@ -1430,7 +1430,8 @@ class SS2Dv2:
         if sparse:
             torch.cuda.nvtx.range_push(f"Upsampling Back")
             y = y.view(B, -1, new_H, new_W)
-            y = F.interpolate(y, size=(H, W))
+            upsample_mode = os.environ.get("UPSAMPLE_MODE", "nearest")
+            y = F.interpolate(y, size=(H, W), mode=upsample_mode)
             torch.cuda.nvtx.range_pop()
         else:
             y = y.view(B, -1, H, W)
