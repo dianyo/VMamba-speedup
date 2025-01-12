@@ -52,6 +52,8 @@ def build_vssm_model(config, is_pretrain=False):
             posembed=config.MODEL.VSSM.POSEMBED,
             imgsize=config.DATA.IMG_SIZE,
         )
+        print(config)
+        # sys.exit(0)
         return model
 
     return None

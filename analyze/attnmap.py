@@ -159,7 +159,8 @@ def main_vssm():
 def main_deit(det_model=False):
     dataset = get_dataset(root='/media/Disk1/Dataset/ImageNet_ILSVRC2012/val', img_size=512, crop=False)
     dataset = get_dataset(root='/media/Disk1/Dataset/MSCOCO2014/images/', img_size=512, ret="val2014", crop=False)
-    # dataset = get_dataset(root='/media/Disk1/Dataset/ADEChallengeData2016/images/', img_size=448, ret="validation", crop=False)    
+    # dataset = get_dataset(root='/media/Disk1/Dataset/ADEChallengeData2016/images/', img_size=448, ret="validation", crop=False)
+    # data = get_dataset(root='/joe/data/ImageNet-Zip/val/', img_size=512, crop=False)
     
     attns = dict()
     deit_small_baseline = None

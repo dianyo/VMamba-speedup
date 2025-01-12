@@ -14,6 +14,8 @@
 **/work_dirs
 **/*.log
 **/*.nsys-rep
+**/*.pt
+**/*.png
 logs
 ckpts
 log

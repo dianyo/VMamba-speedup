@@ -27,6 +27,8 @@ from torch.nn.modules import Module
 from functools import partial
 from typing import Callable, Tuple, Union, Tuple, Union, Any
 from collections import defaultdict
+from data.cached_image_folder import CachedImageFolder
+import record_utils
 
 HOME = os.environ["HOME"].rstrip("/")
 
@@ -313,12 +315,22 @@ class EffectiveReceiptiveField:
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ])
-        dataset = datasets.ImageFolder(os.path.join(data_path, 'val'), transform=transform)
+        # dataset = datasets.ImageFolder(os.path.join(data_path, 'val'), transform=transform)
+        prefix = "val"
+        if os.environ.get("ONE_DATA", None):
+            ann_file = prefix + "_map_one.txt"
+        elif os.environ.get("PART_DATA", None):
+            ann_file = prefix + "_map_part.txt"
+        else:
+            ann_file = prefix + "_map.txt"
+        prefix = prefix + ".zip@/"
+        dataset = CachedImageFolder(data_path, ann_file, prefix, transform, cache_mode="part")
         data_loader_val = DataLoader(dataset, sampler=RandomSampler(dataset), pin_memory=True)
 
         meter = AverageMeter()
         model.cuda().eval()
         for _, (samples, _) in tqdm.tqdm(enumerate(data_loader_val)):
+            record_utils.n_vss_block = 0
             if meter.count == num_images:
                 break
             samples = samples.cuda(non_blocking=True).requires_grad_()
@@ -762,7 +774,8 @@ class BuildModels:
     @staticmethod
     def build_vmamba(with_ckpt=False, remove_head=False, only_backbone=False, scale="tv0", size=224, cfg=None, ckpt=None, key="model"):
         print("vssm ================================", flush=True)
-        _model = import_abspy("vmamba", f"{os.path.dirname(__file__)}/../classification/models")
+        # _model = import_abspy("vmamba", f"{os.path.dirname(__file__)}/../classification/models")
+        _model = import_abspy("vmamba", "/joe/VMamba-speedup/classification/models")
         if scale == "flex":
             model = _model.VSSM(**cfg)
             ckpt = ckpt

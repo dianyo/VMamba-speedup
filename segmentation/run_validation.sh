@@ -1,0 +1,2 @@
+export CKPT="ckpt/upernet_vssm_4xb4-160k_ade20k-512x512_tiny_s_iter_160000.pth"
+PORT=12345 bash ./tools/dist_test.sh configs/vssm1/upernet_vssm_4xb4-160k_ade20k-512x512_tiny.py $CKPT 1 --cfg-options model.backbone.pretrained=$CKPT --tta

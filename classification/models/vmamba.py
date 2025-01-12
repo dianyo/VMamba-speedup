@@ -17,6 +17,7 @@ from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count, parameter_c
 from torchvision.models import VisionTransformer
 from torch.sparse import to_sparse_semi_structured
 import record_utils
+from models.qmap_utils import nearest_upsample
 
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
 # train speed is slower after enabling this opts.
@@ -62,7 +63,7 @@ except:
         selective_scan_flop_jit,
     )
 
-from .ssm_utils import selective_scan_ref_v2
+from models.ssm_utils import selective_scan_ref_v2
 from tome_utils import bipartite_soft_matching, merge_wavg
 
 
@@ -1122,6 +1123,50 @@ class SS2Dv2:
             #     and record_utils.n_vss_block % 3 == 0
             # ):
 
+
+            # def quatermap(x, interval, n_out_of_interval=1):
+            #     """
+            #     Simulates an index-based max-pooling operation for downsampling.
+                
+            #     Args:
+            #         x (torch.Tensor): Input tensor of shape (B, C, H, W).
+            #         interval (int): The downsampling factor.
+            #         n_out_of_interval (int): Number of indices to select per interval (default is 1).
+                    
+            #     Returns:
+            #         torch.Tensor: Downsampled tensor of shape (B, C, H//interval, W//interval).
+            #     """
+            #     if os.environ["QUATERMAP_POOLING_METHOD"] == "MAX":
+            #         pooled_x = torch.nn.functional.max_pool2d(x, kernel_size=interval, stride=interval)
+            #     elif os.environ["QUATERMAP_POOLING_METHOD"] == "AVG":
+            #         pooled_x = torch.nn.functional.avg_pool2d(x, kernel_size=interval, stride=interval)
+            #     else:
+            #         B, C, H, W = x.shape
+                    
+            #         # Generate index-based mask for the height
+            #         indices_h = torch.arange(0, math.ceil(H / interval) * interval, device=x.device)
+            #         indices_h = indices_h.view(-1, interval)[:, :n_out_of_interval].flatten()
+            #         indices_h = indices_h[indices_h < H]
+
+            #         # Generate index-based mask for the width
+            #         indices_w = torch.arange(0, math.ceil(W / interval) * interval, device=x.device)
+            #         indices_w = indices_w.view(-1, interval)[:, :n_out_of_interval].flatten()
+            #         indices_w = indices_w[indices_w < W]
+
+            #         # Construct a mask
+            #         mask = torch.zeros(H, W, device=x.device, dtype=x.dtype)
+            #         mask[indices_h[:, None], indices_w] = 1
+
+            #         # Apply the mask
+            #         mask = mask.unsqueeze(0).unsqueeze(0)  # Expand to (1, 1, H, W)
+            #         masked_x = x * mask  # Apply mask (retains gradient flow)
+
+            #         # Perform max pooling over the masked values
+            #         pooled_x = torch.nn.functional.avg_pool2d(masked_x, kernel_size=interval, stride=interval)
+
+            #         pooled_x = pooled_x * interval**2 
+            #     return pooled_x
+
             def quatermap(x, interval, n_out_of_interval=1):
                 x = x.view(x.shape[0], x.shape[1], H, W)
                 if n_out_of_interval == 1:
@@ -1431,6 +1476,7 @@ class SS2Dv2:
             torch.cuda.nvtx.range_push(f"Upsampling Back")
             y = y.view(B, -1, new_H, new_W)
             upsample_mode = os.environ.get("UPSAMPLE_MODE", "nearest")
+            # y = nearest_upsample(y, (H, W))
             y = F.interpolate(y, size=(H, W), mode=upsample_mode)
             torch.cuda.nvtx.range_pop()
         else:

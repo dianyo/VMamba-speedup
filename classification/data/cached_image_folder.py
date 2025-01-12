@@ -53,6 +53,7 @@ def make_dataset(dir, class_to_idx, extensions):
 
 def make_dataset_with_ann(ann_file, img_prefix, extensions):
     images = []
+    print(ann_file)
     with open(ann_file, "r") as f:
         contents = f.readlines()
         for line_str in contents:

@@ -328,7 +328,7 @@ class SelectiveScanOflex(torch.autograd.Function):
         du, ddelta, dA, dB, dC, dD, ddelta_bias, *rest = selective_scan_cuda_oflex.bwd(
             u, delta, A, B, C, D, delta_bias, dout, x, ctx.delta_softplus, 1
         )
-        return (du, ddelta, dA, dB, dC, dD, ddelta_bias, None, None, None, None)
+        return (du, ddelta, dA, dB, dC, dD, ddelta_bias, None, None, None, None, None)
 
 
 def selective_scan_flop_jit(inputs, outputs, flops_fn=flops_selective_scan_fn, verbose=True):
