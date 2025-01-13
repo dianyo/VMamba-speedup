@@ -5,15 +5,18 @@ import torch.nn as nn
 from PIL import Image
 import torch
 import torch.nn as nn
-
-from utils import visualize, get_dataset, AttnMamba, import_abspy, show_mask_on_image
+import math
+import json
+from plot_utils import save_module_id_mapping
+from utils import visualize, get_dataset, AttnMamba, import_abspy, show_mask_on_image, BuildModels
 visualize_attnmap = visualize.visualize_attnmap
 visualize_attnmaps = visualize.visualize_attnmaps
 attnmap_mamba = AttnMamba.attnmap_mamba
 
 HOME = os.environ["HOME"].rstrip("/")
 this_path = os.path.dirname(os.path.abspath(__file__))
-
+vmamba = import_abspy("vmamba", os.path.join(os.path.dirname(os.path.abspath(__file__)), "../classification/models"))
+VSSM: nn.Module = vmamba.VSSM
 
 def main_attnmap():
     dataset = get_dataset(root='/media/Disk1/Dataset/ImageNet_ILSVRC2012/val', img_size=512, crop=False)
@@ -86,33 +89,27 @@ def main_attnmap():
     breakpoint()
 
 
-
 def main_vssm():
-    dataset = get_dataset(root='/media/Disk1/Dataset/ImageNet_ILSVRC2012/val', img_size=512, crop=False)
-    dataset = get_dataset(root='/media/Disk1/Dataset/MSCOCO2014/images/', img_size=512, ret="val2014", crop=False)
-    # dataset = get_dataset(root='/media/Disk1/Dataset/ADEChallengeData2016/images/', img_size=448, ret="validation", crop=False)    
+    with open("/joe/VMamba-speedup/classification/vssm_kwargs.json", "r") as f:
+            cfg = json.load(f)
+        
+    model = BuildModels.build_vmamba(with_ckpt=True, only_backbone=True, scale="flex", 
+            cfg=cfg,
+            ckpt="/joe/VMamba-speedup/classification/ckpt/vssm_base_0229_ckpt_epoch_237.pth",
+            key="model")
+    model = model.cuda()
     
-    vmamba = import_abspy("vmamba", os.path.join(os.path.dirname(os.path.abspath(__file__)), "../classification/models"))
-    VSSM: nn.Module = vmamba.VSSM    
-    vssm: nn.Module = VSSM(
-        depths=[2, 2, 8, 2], 
-        dims=[96, 192, 384, 768], 
-        ssm_d_state=1,
-        ssm_ratio=1.0,
-        ssm_dt_rank="auto",
-        ssm_conv=3,
-        ssm_conv_bias=False,
-        forward_type="v05_noz",
-        mlp_ratio=4.0,
-        norm_layer="ln2d",
-        downsample_version="v3",
-        patchembed_version="v2",
-    ).cuda().eval()
-    vssm.load_state_dict(torch.load(open(f"{HOME}/Workspace/PylanceAware/ckpts/publish/vssm1/classification/vssm1_tiny_0230s/vssm1_tiny_0230s_ckpt_epoch_264.pth", "rb"), map_location="cpu")["model"], strict=False)
+    save_module_id_mapping(model)
+    
+    data_path = "/joe/data/mscoco2014"
+    # dataset = get_dataset(root='/media/Disk1/Dataset/ImageNet_ILSVRC2012/val', img_size=512, crop=False)
+    # dataset = get_dataset(root='/media/Disk1/Dataset/MSCOCO2014/images/', img_size=512, ret="val2014", crop=False)
+    dataset = get_dataset(root=data_path, img_size=512, ret="val2014", crop=False)        
+    # vssm.load_state_dict(torch.load(open(f"{HOME}/Workspace/PylanceAware/ckpts/publish/vssm1/classification/vssm1_tiny_0230s/vssm1_tiny_0230s_ckpt_epoch_264.pth", "rb"), map_location="cpu")["model"], strict=False)
     # vssm.load_state_dict(AttnMamba.convert_state_dict_from_mmdet(torch.load(open(f"{HOME}/Workspace/PylanceAware/ckpts/private/detection/vssm1/detection/mask_rcnn_vssm_fpn_coco_tiny_ms_3x_s/epoch_36.pth", "rb"), map_location="cpu")["state_dict"]), strict=False)
     
     ss2ds = []
-    for layer in vssm.layers:
+    for layer in model.layers:
         _ss2ds = []
         for blk in layer.blocks:
             ss2d = blk.op
@@ -136,7 +133,7 @@ def main_vssm():
         img, label = dataset[idx]
 
         with torch.no_grad():
-            out = vssm(img[None].cuda())
+            out = model(img[None].cuda())
         print(out.argmax().item(), label, img.shape)
         os.makedirs(f"{showpath}/{idx}_{posx}_{posy}", exist_ok=True)
         deimg = img.cpu() * torch.tensor([0.25, 0.25, 0.25]).view(-1, 1, 1) + torch.tensor([0.5, 0.5, 0.5]).view(-1, 1, 1)
@@ -150,11 +147,105 @@ def main_vssm():
         for m0 in ["a0", "a1", "a2", "a3", "all", "nall"]:
             for m1 in ["CB", "CwBw", "ww"]:
                 aaa = AttnMamba.get_attnmap_mamba(ss2ds, 2, f"{m0}_norm_{m1}", raw_attn=True, block_id=1)
+                # breakpoint()
                 mask = aaa[int(posy * featHW) * int(featHW) + int(posx * featHW)].view(featHW, featHW)
                 visualize_attnmap(mask, f"{showpath}/{idx}_{posx}_{posy}/{m0}_norm_{m1}.jpg", colorbar=False, sticks=False)
         # breakpoint()
-    breakpoint()
+    # breakpoint()
 
+def main_vssm_new(det_model=True, showpath= "show/vssmattnmap"):
+    raw_attn = True
+    stage = 2
+    block_id = 1
+    img_size = 512
+    featHW = 32 # stage 2 so 32
+
+    if not det_model:
+        dataset = get_dataset(root='/joe/data/ImageNet-val/', img_size=img_size, crop=False)
+        idxs_posxs_posys = [
+            [72, 0.7, 0.3], [72, 0.2, 0.8], 
+            [273, 0.7, 0.3], [282, 0.2, 0.8], 
+            [282, 0.7, 0.3], [282, 0.2, 0.8], 
+            [14602, 0.7, 0.3], [14602, 0.2, 0.8], 
+            [17460, 0.6, 0.3], [17460, 0.2, 0.6], 
+            [19256, 0.7, 0.3], [19256, 0.2, 0.3], 
+            [47512, 0.7, 0.3], [47512, 0.3, 0.6], 
+        ]
+        # print([i for i, s in enumerate(dataset.samples) if "ILSVRC2012_val_00012107.JPEG" in s[0] ])
+    else:
+        # we want multiple objects, so we choose to use det model
+        dataset = get_dataset(root='/joe/data/mscoco2014', img_size=img_size, ret="val2014", crop=False)
+        idxs_posxs_posys = [
+            # [0, 0.3, 0.5], [0, 0.8, 0.8], 
+            # [149, 0.7, 0.5], [149, 0.2, 0.4], 
+            # [162, 0.7, 0.4], [162, 0.4, 0.4], 
+            # [204, 0.3, 0.6], [204, 0.7, 0.2], 
+            [273, 0.2, 0.6], [273, 0.9, 0.5],
+            # [309, 0.1, 0.7], [309, 0.9, 0.8],
+        ]
+    
+    # dataset = get_dataset(root='/media/Disk1/Dataset/ADEChallengeData2016/images/', img_size=img_size, ret="validation", crop=False)    
+    
+    vmamba = import_abspy("vmamba", os.path.join(os.path.dirname(os.path.abspath(__file__)), "../classification/models"))
+    # model: nn.Module = vmamba.vmamba_tiny_s1l8().cuda().eval()
+    model: nn.Module = vmamba.vmamba_base_s2l15().cuda().eval()
+    if det_model:
+        # model.load_state_dict(AttnMamba.convert_state_dict_from_mmdet(torch.load(open(f"/joe/VMamba-speedup/detection/ckpt/mask_rcnn_vssm_fpn_coco_tiny_ms_3x_s_epoch_31.pth", "rb"), map_location="cpu")["state_dict"]), strict=False)
+        model.load_state_dict(AttnMamba.convert_state_dict_from_mmdet(torch.load(open(f"/joe/VMamba-speedup/detection/ckpt/mask_rcnn_vssm_fpn_coco_base_epoch_11.pth", "rb"), map_location="cpu")["state_dict"]), strict=False)
+    else:
+        model.load_state_dict(torch.load(open(f"/joe/VMamba-speedup/classification/ckpt/mask_rcnn_vssm_fpn_coco_base_epoch_11.pth", "rb"), map_location="cpu")["model"], strict=False)
+
+    # with open("/joe/VMamba-speedup/classification/vssm_kwargs.json", "r") as f:
+    #     cfg = json.load(f)
+
+    # model = BuildModels.build_vmamba(with_ckpt=True, only_backbone=True, scale="flex", 
+    #     cfg=cfg,
+    #     ckpt="/joe/VMamba-speedup/classification/ckpt/vssm_base_0229_ckpt_epoch_237.pth",
+    #     key="model")
+    # model = model.cuda()
+    
+    save_module_id_mapping(model)
+    for block_id in range(15):
+        if raw_attn:
+            setattr(model.layers[stage].blocks[block_id].op, "__DEBUG__", True)
+            ss2ds = model.layers[stage].blocks[block_id].op
+        else:
+            [[ setattr(blk.op, "__DEBUG__", True)  for blk in layer.blocks] for layer in model.layers ]
+            ss2ds = [[blk.op  for blk in layer.blocks] for layer in model.layers ]
+
+        # count = 0
+        for idx, posx, posy in idxs_posxs_posys:
+            # if count == 0:
+            #     count += 1
+            #     continue
+            img, label = dataset[idx]
+
+            with torch.no_grad():
+                out = model(img[None].cuda())
+            print(out.argmax().item(), label, img.shape)
+            os.makedirs(f"{showpath}/{idx}_{posx}_{posy}", exist_ok=True)
+            deimg = img.cpu() * torch.tensor([0.25, 0.25, 0.25]).view(-1, 1, 1) + torch.tensor([0.5, 0.5, 0.5]).view(-1, 1, 1)
+            deimg = deimg.permute(1, 2, 0).cpu()
+            Image.fromarray((deimg * 255).to(torch.uint8).numpy()).save(f"{showpath}/{idx}_{posx}_{posy}/imori.jpg")
+            visualize.draw_image_grid(
+                Image.fromarray((deimg * 255).to(torch.uint8).numpy()),
+                [(posx * img_size, posy * img_size, img_size / featHW, img_size / featHW,)]
+            ).save(f"{showpath}/{idx}_{posx}_{posy}/imori_grid.jpg")
+            # continue
+
+            for m0 in ["all"]:
+            # for m0 in ["ao0", "ao1", "ao2", "ao3", "a0", "a1", "a2", "a3", "all", "nall"]:
+                for m1 in ["CB", "CwBw"]:
+                    aaa = AttnMamba.get_attnmap_mamba(ss2ds, stage, f"{m0}_norm_{m1}", raw_attn=True, block_id=block_id)
+                    # attention map
+                    # visualize_attnmap(aaa, f"{showpath}/{idx}_{posx}_{posy}/attn_{m0}_norm_{m1}.jpg", colorbar=False, sticks=False)
+                    # diag attention map
+                    diag_attn = torch.diag(aaa)
+                    featHW = int(math.sqrt(diag_attn.shape[-1]))
+                    visualize_attnmap(torch.diag(aaa).view(featHW, featHW), f"{showpath}/{idx}_{posx}_{posy}/attn_{m0}_norm_{m1}_diag_block_{block_id}.jpg", colorbar=False, sticks=False)
+                    # activation map
+                    mask = aaa[int(posy * featHW) * int(featHW) + int(posx * featHW)].view(featHW, featHW)
+                    visualize_attnmap(mask, f"{showpath}/{idx}_{posx}_{posy}/activation_{m0}_norm_{m1}_block_{block_id}.jpg", colorbar=False, sticks=False)
 
 def main_deit(det_model=False):
     dataset = get_dataset(root='/media/Disk1/Dataset/ImageNet_ILSVRC2012/val', img_size=512, crop=False)
@@ -275,6 +366,10 @@ def main_deit(det_model=False):
 
 if __name__ == "__main__":
     # main_attnmap()
-    main_deit(det_model=True)
-    main_vssm()
+    # main_deit(det_model=True)
+    # main_vssm()
+    show_path = "show/vssmattnmap_stg2"
+    if int(os.environ.get("QUATERMAP", 0)) > 0:
+        show_path += "_quatermap"
+    main_vssm_new(showpath=show_path)
 

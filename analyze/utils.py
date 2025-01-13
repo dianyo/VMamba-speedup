@@ -43,7 +43,7 @@ def import_abspy(name="models", path="classification/"):
     return module
 
 
-def get_dataset(root="./val", img_size=224, ret="", crop=True):
+def get_dataset(root="./val", img_size=224, ret="", crop=True, single_image=False):
     from torch.utils.data import SequentialSampler, DistributedSampler, DataLoader
     size = int((256 / 224) * img_size) if crop else int(img_size)
     transform = transforms.Compose([
@@ -52,16 +52,27 @@ def get_dataset(root="./val", img_size=224, ret="", crop=True):
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.25, 0.25, 0.25)),
     ])
-    dataset = datasets.ImageFolder(root, transform=transform)
-    if ret in dataset.classes:
-        print(f"found target {ret}", flush=True)
-        target = dataset.class_to_idx[ret]
-        dataset.samples =  [s for s in dataset.samples if s[1] == target]
-        dataset.targets = [s for s in dataset.targets if s == target]
-        dataset.classes = [ret]
-        dataset.class_to_idx = {ret: target}
+    if single_image:
+        class ds(datasets.ImageFolder):
+            def __init__(self, img, transform):
+                self.transform = transform
+                self.target_transform = None
+                self.loader = datasets.folder.default_loader
+                self.samples = [(img, 0)]
+                self.targets = [0]
+                self.classes = ["none"]
+                self.class_to_idx = {"none": 0}
+        dataset = ds(root, transform=transform)
+    else:
+        dataset = datasets.ImageFolder(root, transform=transform)
+        if ret in dataset.classes:
+            print(f"found target {ret}", flush=True)
+            target = dataset.class_to_idx[ret]
+            dataset.samples =  [s for s in dataset.samples if s[1] == target]
+            dataset.targets = [s for s in dataset.targets if s == target]
+            dataset.classes = [ret]
+            dataset.class_to_idx = {ret: target}
     return dataset
-
 
 def show_mask_on_image(img: torch.Tensor, mask: torch.Tensor, mask_norm=True):
     H, W, C = img.shape
@@ -386,7 +397,7 @@ class AttnMamba:
 
         mask = torch.tril(dts.new_ones((L, L)))
         dts = torch.nn.functional.softplus(dts + delta_bias[:, None]).view(B, G, D, L)
-        dw_logs = As.view(G, D, N)[None, :, :, None] * dts[:,:,:,None,:] # (B, G, D, N, L)
+        dw_logs = As.view(G, D, N)[None, :, :, :, None] * dts[:,:,:,None,:] # (B, G, D, N, L)
         ws = torch.cumsum(dw_logs, dim=-1).exp()
 
         if mode == "CB":
@@ -460,7 +471,8 @@ class AttnMamba:
         absnorm = 1 if tag else absnorm
 
         if raw_attn:
-            regs = getattr(ss2ds[stage][block_id], "__data__")
+            ss2d = ss2ds if not isinstance(ss2ds, list) else ss2ds[stage][block_id]
+            regs = getattr(ss2d, "__data__")
             attn, H, W = cls.attnmap_mamba(regs, mode=mode1, ret=mode, absnorm=absnorm, verbose=verbose, scale=scale)
             return attn
 
