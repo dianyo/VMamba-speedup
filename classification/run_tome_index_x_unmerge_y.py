@@ -5,7 +5,8 @@ import pickle
 
 model_type = os.environ.get("MODEL_TYPE", "base")
 
-tome_numbers = [0, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+# tome_numbers = [0, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+tome_numbers = [64]
 for i, tome_n in enumerate(tome_numbers):
     os.environ["TOME_N"] = str(tome_n)
     if model_type == "base":

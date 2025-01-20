@@ -7,10 +7,9 @@ intervals = [2, 3, 4, 5, 6, 7, 8]
 accuracy = [83.016, 82.072, 81.248, 79.908, 80.000, 78.61, 78.71]
 
 # Plotting the line chart
-plt.figure(figsize=(8, 5), dpi=500)
+plt.figure(figsize=(10, 6), dpi=500)
 plt.plot(intervals, accuracy, marker='o', linestyle='-', color='b')
-plt.title('Effect of Pruning Interval on Top-1 Accuracy', fontsize=20)
-plt.xlabel('Interval', fontsize=20)
+plt.xlabel('Pruning Interval (m)', fontsize=20)
 plt.ylabel('Acc@1 (%)', fontsize=20)
 plt.xticks(intervals, fontsize=14)
 plt.yticks(fontsize=14)
@@ -59,6 +58,31 @@ plt.savefig("ablation_2_1.png")
 # plt.tight_layout()
 # plt.savefig('ablation_2_2.png')
 
+# Filter only the points where n/m = 1/2
+# n_values = [1, 2, 3, 4]
+# m_values = [2, 4, 6, 8]
+# accuracy_values = [83.02, 82.47, 82.19, 82.32]  # Update these values to match your actual data
+# colors = {1: 'b', 2: 'g', 3: 'r', 4: 'purple'}
+
+# plt.figure(figsize=(10, 6), dpi=500)
+
+# # Plot points with ratio n/m = 1/2
+# for n, m, acc in zip(n_values, m_values, accuracy_values):
+#     plt.plot(m, acc, color=colors[n], marker='X', markersize=10, label=f'n = {n}')
+
+# # Connect all points with a single line
+# plt.plot(m_values, accuracy_values, 'k-', linewidth=2)  # black line connecting all points
+
+# # Updated plot aesthetics
+# # plt.title('Acc@1 for pruning with n/m = 1/2 ratio', fontsize=20)
+# plt.xlabel('Pruning Interval (m)', fontsize=20)
+# plt.ylabel('Acc@1 (%)', fontsize=20)
+# plt.legend(fontsize=14)
+# plt.xticks(fontsize=14)
+# plt.yticks(fontsize=14)
+# plt.grid(True, linestyle='--', alpha=0.7)
+# plt.tight_layout()
+# plt.savefig('ablation_2_2_ratio.png')
 
 
-# 
+# # 

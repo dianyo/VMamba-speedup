@@ -174,8 +174,10 @@ if __name__ == "__main__":
         visualize.visualize_snsmaps(base_results, savefig=f"{showpath}/erf_base.jpg", rows=1, sticks=False, figsize=(10, 10.75), cmap='RdYlGn')
         
         os.environ["QUATERMAP"] = "1"
-        for pooling_method in ["MAX", "AVG", "QUARTER"]:
-            for freq in [1, 2, 3]:
+        # for pooling_method in ["MAX", "AVG", "QUARTER"]:
+        for pooling_method in ["QUARTER"]:
+            # for freq in [1, 2, 3]:
+            for freq in [3]:
                 os.environ["QUATERMAP_POOLING_METHOD"] = pooling_method
                 os.environ["QUATERMAP_FREQ"] = str(freq)
                 results = [
@@ -184,7 +186,11 @@ if __name__ == "__main__":
                 visualize.visualize_snsmaps(results, savefig=f"{showpath}/erf_{pooling_method}_{freq}.jpg", rows=1, sticks=False, figsize=(10, 10.75), cmap='RdYlGn')
                 
                 diff = np.abs(base_results[0][0] - results[0][0])
-                visualize.visualize_snsmaps([(diff, "")], savefig=f"{showpath}/erf_{pooling_method}_{freq}_diff.jpg", rows=1, sticks=False, figsize=(10, 10.75), cmap="Reds")
+                for th in [0.1, 0.12, 0.14, 0.16, 0.18, 0.2]:
+                    diff_th = np.where(diff > th, diff_th, 0)
+                    # grey scale
+                    # diff_th_grey = np.repeat(diff_th[..., np.newaxis], 3, axis=-1)
+                    visualize.visualize_snsmaps([(diff_th, "")], savefig=f"{showpath}/erf_{pooling_method}_{freq}_diff_{th}.jpg", rows=1, sticks=False, figsize=(10, 10.75), cmap="gray")
 
 
 
