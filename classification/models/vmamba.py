@@ -1117,55 +1117,7 @@ class SS2Dv2:
             layer_name = record_utils.reversed_module_id_mapping.get(id(self), None)
             apply_quater_map = int(os.environ.get("QUATERMAP", 0)) > 0
             sparse = False
-            # if (
-            #     apply_quater_map
-            #     and record_utils.n_vss_block > 2
-            #     and record_utils.n_vss_block % 3 == 0
-            # ):
-
-
-            # def quatermap(x, interval, n_out_of_interval=1):
-            #     """
-            #     Simulates an index-based max-pooling operation for downsampling.
-                
-            #     Args:
-            #         x (torch.Tensor): Input tensor of shape (B, C, H, W).
-            #         interval (int): The downsampling factor.
-            #         n_out_of_interval (int): Number of indices to select per interval (default is 1).
-                    
-            #     Returns:
-            #         torch.Tensor: Downsampled tensor of shape (B, C, H//interval, W//interval).
-            #     """
-            #     if os.environ["QUATERMAP_POOLING_METHOD"] == "MAX":
-            #         pooled_x = torch.nn.functional.max_pool2d(x, kernel_size=interval, stride=interval)
-            #     elif os.environ["QUATERMAP_POOLING_METHOD"] == "AVG":
-            #         pooled_x = torch.nn.functional.avg_pool2d(x, kernel_size=interval, stride=interval)
-            #     else:
-            #         B, C, H, W = x.shape
-                    
-            #         # Generate index-based mask for the height
-            #         indices_h = torch.arange(0, math.ceil(H / interval) * interval, device=x.device)
-            #         indices_h = indices_h.view(-1, interval)[:, :n_out_of_interval].flatten()
-            #         indices_h = indices_h[indices_h < H]
-
-            #         # Generate index-based mask for the width
-            #         indices_w = torch.arange(0, math.ceil(W / interval) * interval, device=x.device)
-            #         indices_w = indices_w.view(-1, interval)[:, :n_out_of_interval].flatten()
-            #         indices_w = indices_w[indices_w < W]
-
-            #         # Construct a mask
-            #         mask = torch.zeros(H, W, device=x.device, dtype=x.dtype)
-            #         mask[indices_h[:, None], indices_w] = 1
-
-            #         # Apply the mask
-            #         mask = mask.unsqueeze(0).unsqueeze(0)  # Expand to (1, 1, H, W)
-            #         masked_x = x * mask  # Apply mask (retains gradient flow)
-
-            #         # Perform max pooling over the masked values
-            #         pooled_x = torch.nn.functional.avg_pool2d(masked_x, kernel_size=interval, stride=interval)
-
-            #         pooled_x = pooled_x * interval**2 
-            #     return pooled_x
+            tome_n = int(os.environ.get("TOME_N", 0))
 
             def quatermap(x, interval, n_out_of_interval=1):
                 x = x.view(x.shape[0], x.shape[1], H, W)
@@ -1182,6 +1134,7 @@ class SS2Dv2:
                     return x[:, :, indices, :][:, :, :, indices].contiguous()
 
             if apply_quater_map:
+                torch.cuda.nvtx.range_push(f"QuaterMap")
                 pixel_interval = int(os.environ.get("QUATERMAP_INTERVAL", 2))
                 quater_map_strategy = os.environ.get(
                     "QUATERMAP_STRATEGY", "none_first_layer"
@@ -1215,6 +1168,7 @@ class SS2Dv2:
                     record_utils.already_printed_layers.add(layer_name)
                     print(f"apply_quater_map in {layer_name} block")
                 new_H, new_W = x.shape[2], x.shape[3]
+                torch.cuda.nvtx.range_pop()
                 # if tome_n > 0:
                 # Index token merging on xs
                 # print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
@@ -1324,29 +1278,36 @@ class SS2Dv2:
             Ds = Ds.to(torch.float)  # (K * c)
             delta_bias = dt_projs_bias.view(-1).to(torch.float)
             r = 0
-            # if tome_n > 0 and record_utils.n_vss_block % 4 == 0:
-            #     print(f"tome_n: {tome_n}, L: {L}, in {record_utils.n_vss_block} block")
-            #     # Index token merging on xs
-            #     torch.cuda.nvtx.range_push(f"IndexTokenMerging")
-            #     merge, unmerge, r = bipartite_soft_matching(
-            #         xs, tome_n
-            #     )
-            #     torch.cuda.nvtx.range_pop()
+            tome_n = int(os.environ.get("TOME_N", 0))
+            tome_k = int(os.environ.get("TOME_K", 3))
+            apply_tome = False
+            if tome_n > 0:
+                torch.cuda.nvtx.range_push(f"Tome")
+                if ( not "layers.0" in layer_name) and record_utils.n_vss_block % tome_k == 0:
+                    # apply tome on xs
+                    # Index token merging on xs
+                    r = xs.shape[1] // 4 * 3
+                    merge, unmerge, r = bipartite_soft_matching(
+                        xs, r
+                    )
+                    xs, _ = merge_wavg(merge, xs)
+                    
+                    dts, _ = merge_wavg(merge, dts)
+                    # print(f"tome_n: {tome_n}, L: {L}")
+                    
+                    Bs = Bs.view(B, K*N, L)
+                    Bs, _ = merge_wavg(merge, Bs)
+                    Bs = Bs.view(B, K, N, L-r)
 
-            #     torch.cuda.nvtx.range_push(f"Merging")
-            #     xs, _ = merge_wavg(merge, xs)
-
-            #     dts, _ = merge_wavg(merge, dts)
-            #     # print(f"tome_n: {tome_n}, L: {L}")
-            #     Bs = Bs.view(B, K*N, L)
-            #     Bs, _ = merge_wavg(merge, Bs)
-            #     # print(Bs.shape)
-            #     Bs = Bs.view(B, K, N, L)
-
-            #     Cs = Cs.view(B, K*N, L)
-            #     Cs, _ = merge_wavg(merge, Cs)
-            #     Cs = Cs.view(B, K, N, L)
-            #     torch.cuda.nvtx.range_pop()
+                    Cs = Cs.view(B, K*N, L)
+                    Cs, _ = merge_wavg(merge, Cs)
+                    Cs = Cs.view(B, K, N, L-r)
+                    apply_tome = True
+                if apply_tome and  (layer_name not in record_utils.already_printed_layers):
+                    record_utils.already_printed_layers.add(layer_name)
+                    print(f"apply_tome in {layer_name} block, with r={r}, original L={L}")
+                torch.cuda.nvtx.range_pop()
+                    
             # As = -torch.exp(A_logs.to(torch.float16)) # (k * c, d_state)
             # Bs = Bs.contiguous().view(B, K, N, L)
             # Cs = Cs.contiguous().view(B, K, N, L)
@@ -1395,12 +1356,12 @@ class SS2Dv2:
             #     torch.save(ys.contiguous().detach().clone(), f"{ys_tensor_save_dir}/{ts}_{id(self)}_{self.ys_saved_count}_ys_shape{ys_shape_str}.pt")
             #     self.ys_saved_count += 1
 
-            # if tome_n > 0:
-            #     torch.cuda.nvtx.range_push(f"Unmerging")
-            #     ys = ys.view(B, -1, L-r)
-            #     ys = unmerge(ys)
-            #     ys = ys.view(B, L, -1)
-            #     torch.cuda.nvtx.range_pop()
+            if apply_tome:
+                torch.cuda.nvtx.range_push(f"Unmerge")
+                ys = ys.view(B, -1, L-r)
+                ys = unmerge(ys)
+                ys = ys.view(B, L, -1)
+                torch.cuda.nvtx.range_pop()
 
             if False:
                 # Assuming unmask and unmask_transpose are already defined

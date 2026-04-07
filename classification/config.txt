@@ -1,0 +1,122 @@
+||fork||=> merge config from configs/vssm/vmambav2_base_224.yaml
+/tmp/vssm1_base_0229/20241217141813
+[2024-12-17 14:18:13 vssm1_base_0229](main_no_dist.py 683): INFO Full config saved to /tmp/vssm1_base_0229/20241217141813/config.json
+[2024-12-17 14:18:13 vssm1_base_0229](main_no_dist.py 687): INFO {"cfg": "configs/vssm/vmambav2_base_224.yaml", "opts": null, "batch_size": 128, "data_path": "/joe/data/ImageNet-Zip", "zip": true, "cache_mode": "part", "pretrained": null, "resume": "ckpt/vssm_base_0229_ckpt_epoch_237.pth", "accumulation_steps": null, "use_checkpoint": false, "disable_amp": false, "output": "/tmp/", "tag": "20241217141813", "eval": false, "throughput": false, "fused_layernorm": false, "optim": null, "model_ema": true, "model_ema_decay": 0.9999, "model_ema_force_cpu": false, "memory_limit_rate": -1, "plot_weight_distribution": false, "bitwidth": 32, "plot_type": "histogram", "fp16": false, "flops": false, "img_size": 224}
+[2024-12-17 14:18:13 vssm1_base_0229](main_no_dist.py 697): INFO Image size: 224, batch size: 128
+/joe/data/ImageNet-Zip/train_map_part.txt
+successfully build train dataset
+/joe/data/ImageNet-Zip/val_map_part.txt
+global_rank 0 cached 0/5000 takes 0.00s per block
+global_rank 0 cached 500/5000 takes 0.70s per block
+global_rank 0 cached 1000/5000 takes 0.20s per block
+global_rank 0 cached 1500/5000 takes 0.19s per block
+global_rank 0 cached 2000/5000 takes 0.19s per block
+global_rank 0 cached 2500/5000 takes 0.18s per block
+global_rank 0 cached 3000/5000 takes 0.18s per block
+global_rank 0 cached 3500/5000 takes 0.17s per block
+global_rank 0 cached 4000/5000 takes 0.17s per block
+global_rank 0 cached 4500/5000 takes 0.18s per block
+successfully build val dataset
+[2024-12-17 14:18:15 vssm1_base_0229](main_no_dist.py 222): INFO Creating model:vssm/vssm1_base_0229
+AMP_ENABLE: True
+AMP_OPT_LEVEL: 
+AUG:
+  AUTO_AUGMENT: rand-m9-mstd0.5-inc1
+  COLOR_JITTER: 0.4
+  CUTMIX: 1.0
+  CUTMIX_MINMAX: None
+  MIXUP: 0.8
+  MIXUP_MODE: batch
+  MIXUP_PROB: 1.0
+  MIXUP_SWITCH_PROB: 0.5
+  RECOUNT: 1
+  REMODE: pixel
+  REPROB: 0.25
+BASE: ['']
+DATA:
+  BATCH_SIZE: 128
+  CACHE_MODE: part
+  DATASET: imagenet
+  DATA_PATH: /joe/data/ImageNet-Zip
+  IMG_SIZE: 224
+  INTERPOLATION: bicubic
+  MASK_PATCH_SIZE: 32
+  MASK_RATIO: 0.6
+  NUM_WORKERS: 8
+  PIN_MEMORY: True
+  ZIP_MODE: True
+ENABLE_AMP: False
+EVAL_MODE: False
+FUSED_LAYERNORM: False
+MODEL:
+  DROP_PATH_RATE: 0.6
+  DROP_RATE: 0.0
+  LABEL_SMOOTHING: 0.1
+  MMCKPT: False
+  NAME: vssm1_base_0229
+  NUM_CLASSES: 1000
+  PRETRAINED: 
+  RESUME: ckpt/vssm_base_0229_ckpt_epoch_237.pth
+  TYPE: vssm
+  VSSM:
+    DEPTHS: [2, 2, 15, 2]
+    DOWNSAMPLE: v3
+    EMBED_DIM: 128
+    GMLP: False
+    IN_CHANS: 3
+    MLP_ACT_LAYER: gelu
+    MLP_DROP_RATE: 0.0
+    MLP_RATIO: 4.0
+    NORM_LAYER: ln2d
+    PATCHEMBED: v2
+    PATCH_NORM: True
+    PATCH_SIZE: 4
+    POSEMBED: False
+    SSM_ACT_LAYER: silu
+    SSM_CONV: 3
+    SSM_CONV_BIAS: False
+    SSM_DROP_RATE: 0.0
+    SSM_DT_RANK: auto
+    SSM_D_STATE: 1
+    SSM_FORWARDTYPE: v05_noz
+    SSM_INIT: v0
+    SSM_RANK_RATIO: 2.0
+    SSM_RATIO: 2.0
+OUTPUT: /tmp/vssm1_base_0229/20241217141813
+PRINT_FREQ: 10
+SAVE_FREQ: 1
+SEED: 0
+TAG: 20241217141813
+TEST:
+  CROP: True
+  SEQUENTIAL: False
+  SHUFFLE: False
+THROUGHPUT_MODE: False
+TRAIN:
+  ACCUMULATION_STEPS: 1
+  AUTO_RESUME: True
+  BASE_LR: 0.000125
+  CLIP_GRAD: 5.0
+  EPOCHS: 300
+  LAYER_DECAY: 1.0
+  LR_SCHEDULER:
+    DECAY_EPOCHS: 30
+    DECAY_RATE: 0.1
+    GAMMA: 0.1
+    MULTISTEPS: []
+    NAME: cosine
+    WARMUP_PREFIX: True
+  MIN_LR: 1.25e-06
+  MOE:
+    SAVE_MASTER: False
+  OPTIMIZER:
+    BETAS: (0.9, 0.999)
+    EPS: 1e-08
+    MOMENTUM: 0.9
+    NAME: adamw
+  START_EPOCH: 0
+  USE_CHECKPOINT: False
+  WARMUP_EPOCHS: 20
+  WARMUP_LR: 1.25e-07
+  WEIGHT_DECAY: 0.05
+TRAINCOST_MODE: False

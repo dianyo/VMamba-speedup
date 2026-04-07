@@ -1,0 +1,69 @@
+/usr/local/lib/python3.10/dist-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+||fork||=> merge config from configs/vssm/vmambav2_base_224.yaml
+/tmp/vssm1_base_0229/20241114144403
+[2024-11-14 14:44:03 vssm1_base_0229](main_no_dist.py 683): INFO Full config saved to /tmp/vssm1_base_0229/20241114144403/config.json
+[2024-11-14 14:44:03 vssm1_base_0229](main_no_dist.py 687): INFO {"cfg": "configs/vssm/vmambav2_base_224.yaml", "opts": null, "batch_size": 128, "data_path": "/joe/data/ImageNet-Zip", "zip": true, "cache_mode": "part", "pretrained": null, "resume": "ckpt/vssm_base_0229_ckpt_epoch_237.pth", "accumulation_steps": null, "use_checkpoint": false, "disable_amp": false, "output": "/tmp/", "tag": "20241114144403", "eval": false, "throughput": false, "fused_layernorm": false, "optim": null, "model_ema": true, "model_ema_decay": 0.9999, "model_ema_force_cpu": false, "memory_limit_rate": -1, "plot_weight_distribution": false, "bitwidth": 32, "plot_type": "histogram", "fp16": false, "flops": false, "img_size": 224}
+[2024-11-14 14:44:03 vssm1_base_0229](main_no_dist.py 697): INFO Image size: 224, batch size: 128
+successfully build train dataset
+global_rank 0 cached 0/50000 takes 0.00s per block
+global_rank 0 cached 5000/50000 takes 2.35s per block
+global_rank 0 cached 10000/50000 takes 1.83s per block
+global_rank 0 cached 15000/50000 takes 1.91s per block
+global_rank 0 cached 20000/50000 takes 1.93s per block
+global_rank 0 cached 25000/50000 takes 1.89s per block
+global_rank 0 cached 30000/50000 takes 1.93s per block
+global_rank 0 cached 35000/50000 takes 1.94s per block
+global_rank 0 cached 40000/50000 takes 1.99s per block
+global_rank 0 cached 45000/50000 takes 1.93s per block
+successfully build val dataset
+[2024-11-14 14:44:23 vssm1_base_0229](main_no_dist.py 222): INFO Creating model:vssm/vssm1_base_0229
+[2024-11-14 14:44:24 vssm1_base_0229](main_no_dist.py 228): INFO number of params: 88557800
+[2024-11-14 14:44:24 vssm1_base_0229](main_no_dist.py 229): INFO Selected layers: []
+[2024-11-14 14:44:24 vssm1_base_0229](main_no_dist.py 230): INFO Token Merging Number: 0
+Using EMA with decay = 0.99990000
+[2024-11-14 14:44:24 vssm1_base_0229](optimizer.py 18): INFO ==============> building optimizer adamw....................
+[2024-11-14 14:44:24 vssm1_base_0229](optimizer.py 26): INFO No weight decay list: ['patch_embed.0.bias', 'patch_embed.2.weight', 'patch_embed.2.bias', 'patch_embed.5.bias', 'patch_embed.7.weight', 'patch_embed.7.bias', 'layers.0.blocks.0.norm.weight', 'layers.0.blocks.0.norm.bias', 'layers.0.blocks.0.op.Ds', 'layers.0.blocks.0.op.out_norm.weight', 'layers.0.blocks.0.op.out_norm.bias', 'layers.0.blocks.0.norm2.weight', 'layers.0.blocks.0.norm2.bias', 'layers.0.blocks.0.mlp.fc1.bias', 'layers.0.blocks.0.mlp.fc2.bias', 'layers.0.blocks.1.norm.weight', 'layers.0.blocks.1.norm.bias', 'layers.0.blocks.1.op.Ds', 'layers.0.blocks.1.op.out_norm.weight', 'layers.0.blocks.1.op.out_norm.bias', 'layers.0.blocks.1.norm2.weight', 'layers.0.blocks.1.norm2.bias', 'layers.0.blocks.1.mlp.fc1.bias', 'layers.0.blocks.1.mlp.fc2.bias', 'layers.0.downsample.1.bias', 'layers.0.downsample.3.weight', 'layers.0.downsample.3.bias', 'layers.1.blocks.0.norm.weight', 'layers.1.blocks.0.norm.bias', 'layers.1.blocks.0.op.Ds', 'layers.1.blocks.0.op.out_norm.weight', 'layers.1.blocks.0.op.out_norm.bias', 'layers.1.blocks.0.norm2.weight', 'layers.1.blocks.0.norm2.bias', 'layers.1.blocks.0.mlp.fc1.bias', 'layers.1.blocks.0.mlp.fc2.bias', 'layers.1.blocks.1.norm.weight', 'layers.1.blocks.1.norm.bias', 'layers.1.blocks.1.op.Ds', 'layers.1.blocks.1.op.out_norm.weight', 'layers.1.blocks.1.op.out_norm.bias', 'layers.1.blocks.1.norm2.weight', 'layers.1.blocks.1.norm2.bias', 'layers.1.blocks.1.mlp.fc1.bias', 'layers.1.blocks.1.mlp.fc2.bias', 'layers.1.downsample.1.bias', 'layers.1.downsample.3.weight', 'layers.1.downsample.3.bias', 'layers.2.blocks.0.norm.weight', 'layers.2.blocks.0.norm.bias', 'layers.2.blocks.0.op.Ds', 'layers.2.blocks.0.op.out_norm.weight', 'layers.2.blocks.0.op.out_norm.bias', 'layers.2.blocks.0.norm2.weight', 'layers.2.blocks.0.norm2.bias', 'layers.2.blocks.0.mlp.fc1.bias', 'layers.2.blocks.0.mlp.fc2.bias', 'layers.2.blocks.1.norm.weight', 'layers.2.blocks.1.norm.bias', 'layers.2.blocks.1.op.Ds', 'layers.2.blocks.1.op.out_norm.weight', 'layers.2.blocks.1.op.out_norm.bias', 'layers.2.blocks.1.norm2.weight', 'layers.2.blocks.1.norm2.bias', 'layers.2.blocks.1.mlp.fc1.bias', 'layers.2.blocks.1.mlp.fc2.bias', 'layers.2.blocks.2.norm.weight', 'layers.2.blocks.2.norm.bias', 'layers.2.blocks.2.op.Ds', 'layers.2.blocks.2.op.out_norm.weight', 'layers.2.blocks.2.op.out_norm.bias', 'layers.2.blocks.2.norm2.weight', 'layers.2.blocks.2.norm2.bias', 'layers.2.blocks.2.mlp.fc1.bias', 'layers.2.blocks.2.mlp.fc2.bias', 'layers.2.blocks.3.norm.weight', 'layers.2.blocks.3.norm.bias', 'layers.2.blocks.3.op.Ds', 'layers.2.blocks.3.op.out_norm.weight', 'layers.2.blocks.3.op.out_norm.bias', 'layers.2.blocks.3.norm2.weight', 'layers.2.blocks.3.norm2.bias', 'layers.2.blocks.3.mlp.fc1.bias', 'layers.2.blocks.3.mlp.fc2.bias', 'layers.2.blocks.4.norm.weight', 'layers.2.blocks.4.norm.bias', 'layers.2.blocks.4.op.Ds', 'layers.2.blocks.4.op.out_norm.weight', 'layers.2.blocks.4.op.out_norm.bias', 'layers.2.blocks.4.norm2.weight', 'layers.2.blocks.4.norm2.bias', 'layers.2.blocks.4.mlp.fc1.bias', 'layers.2.blocks.4.mlp.fc2.bias', 'layers.2.blocks.5.norm.weight', 'layers.2.blocks.5.norm.bias', 'layers.2.blocks.5.op.Ds', 'layers.2.blocks.5.op.out_norm.weight', 'layers.2.blocks.5.op.out_norm.bias', 'layers.2.blocks.5.norm2.weight', 'layers.2.blocks.5.norm2.bias', 'layers.2.blocks.5.mlp.fc1.bias', 'layers.2.blocks.5.mlp.fc2.bias', 'layers.2.blocks.6.norm.weight', 'layers.2.blocks.6.norm.bias', 'layers.2.blocks.6.op.Ds', 'layers.2.blocks.6.op.out_norm.weight', 'layers.2.blocks.6.op.out_norm.bias', 'layers.2.blocks.6.norm2.weight', 'layers.2.blocks.6.norm2.bias', 'layers.2.blocks.6.mlp.fc1.bias', 'layers.2.blocks.6.mlp.fc2.bias', 'layers.2.blocks.7.norm.weight', 'layers.2.blocks.7.norm.bias', 'layers.2.blocks.7.op.Ds', 'layers.2.blocks.7.op.out_norm.weight', 'layers.2.blocks.7.op.out_norm.bias', 'layers.2.blocks.7.norm2.weight', 'layers.2.blocks.7.norm2.bias', 'layers.2.blocks.7.mlp.fc1.bias', 'layers.2.blocks.7.mlp.fc2.bias', 'layers.2.blocks.8.norm.weight', 'layers.2.blocks.8.norm.bias', 'layers.2.blocks.8.op.Ds', 'layers.2.blocks.8.op.out_norm.weight', 'layers.2.blocks.8.op.out_norm.bias', 'layers.2.blocks.8.norm2.weight', 'layers.2.blocks.8.norm2.bias', 'layers.2.blocks.8.mlp.fc1.bias', 'layers.2.blocks.8.mlp.fc2.bias', 'layers.2.blocks.9.norm.weight', 'layers.2.blocks.9.norm.bias', 'layers.2.blocks.9.op.Ds', 'layers.2.blocks.9.op.out_norm.weight', 'layers.2.blocks.9.op.out_norm.bias', 'layers.2.blocks.9.norm2.weight', 'layers.2.blocks.9.norm2.bias', 'layers.2.blocks.9.mlp.fc1.bias', 'layers.2.blocks.9.mlp.fc2.bias', 'layers.2.blocks.10.norm.weight', 'layers.2.blocks.10.norm.bias', 'layers.2.blocks.10.op.Ds', 'layers.2.blocks.10.op.out_norm.weight', 'layers.2.blocks.10.op.out_norm.bias', 'layers.2.blocks.10.norm2.weight', 'layers.2.blocks.10.norm2.bias', 'layers.2.blocks.10.mlp.fc1.bias', 'layers.2.blocks.10.mlp.fc2.bias', 'layers.2.blocks.11.norm.weight', 'layers.2.blocks.11.norm.bias', 'layers.2.blocks.11.op.Ds', 'layers.2.blocks.11.op.out_norm.weight', 'layers.2.blocks.11.op.out_norm.bias', 'layers.2.blocks.11.norm2.weight', 'layers.2.blocks.11.norm2.bias', 'layers.2.blocks.11.mlp.fc1.bias', 'layers.2.blocks.11.mlp.fc2.bias', 'layers.2.blocks.12.norm.weight', 'layers.2.blocks.12.norm.bias', 'layers.2.blocks.12.op.Ds', 'layers.2.blocks.12.op.out_norm.weight', 'layers.2.blocks.12.op.out_norm.bias', 'layers.2.blocks.12.norm2.weight', 'layers.2.blocks.12.norm2.bias', 'layers.2.blocks.12.mlp.fc1.bias', 'layers.2.blocks.12.mlp.fc2.bias', 'layers.2.blocks.13.norm.weight', 'layers.2.blocks.13.norm.bias', 'layers.2.blocks.13.op.Ds', 'layers.2.blocks.13.op.out_norm.weight', 'layers.2.blocks.13.op.out_norm.bias', 'layers.2.blocks.13.norm2.weight', 'layers.2.blocks.13.norm2.bias', 'layers.2.blocks.13.mlp.fc1.bias', 'layers.2.blocks.13.mlp.fc2.bias', 'layers.2.blocks.14.norm.weight', 'layers.2.blocks.14.norm.bias', 'layers.2.blocks.14.op.Ds', 'layers.2.blocks.14.op.out_norm.weight', 'layers.2.blocks.14.op.out_norm.bias', 'layers.2.blocks.14.norm2.weight', 'layers.2.blocks.14.norm2.bias', 'layers.2.blocks.14.mlp.fc1.bias', 'layers.2.blocks.14.mlp.fc2.bias', 'layers.2.downsample.1.bias', 'layers.2.downsample.3.weight', 'layers.2.downsample.3.bias', 'layers.3.blocks.0.norm.weight', 'layers.3.blocks.0.norm.bias', 'layers.3.blocks.0.op.Ds', 'layers.3.blocks.0.op.out_norm.weight', 'layers.3.blocks.0.op.out_norm.bias', 'layers.3.blocks.0.norm2.weight', 'layers.3.blocks.0.norm2.bias', 'layers.3.blocks.0.mlp.fc1.bias', 'layers.3.blocks.0.mlp.fc2.bias', 'layers.3.blocks.1.norm.weight', 'layers.3.blocks.1.norm.bias', 'layers.3.blocks.1.op.Ds', 'layers.3.blocks.1.op.out_norm.weight', 'layers.3.blocks.1.op.out_norm.bias', 'layers.3.blocks.1.norm2.weight', 'layers.3.blocks.1.norm2.bias', 'layers.3.blocks.1.mlp.fc1.bias', 'layers.3.blocks.1.mlp.fc2.bias', 'classifier.norm.weight', 'classifier.norm.bias', 'classifier.head.bias']
+All checkpoints founded in /tmp/vssm1_base_0229/20241114144403: []
+[2024-11-14 14:44:24 vssm1_base_0229](main_no_dist.py 288): INFO no checkpoint found in /tmp/vssm1_base_0229/20241114144403, ignoring auto resume
+[2024-11-14 14:44:24 vssm1_base_0229](utils.py 18): INFO ==============> Resuming form ckpt/vssm_base_0229_ckpt_epoch_237.pth....................
+[2024-11-14 14:44:26 vssm1_base_0229](utils.py 27): INFO resuming model: <All keys matched successfully>
+[2024-11-14 14:44:26 vssm1_base_0229](utils.py 36): WARNING No 'model_ema' found in ckpt/vssm_base_0229_ckpt_epoch_237.pth! 
+{'layers.0.blocks.0.op': 140646293750784, 'layers.0.blocks.1.op': 140646293756736, 'layers.1.blocks.0.op': 140646293758416, 'layers.1.blocks.1.op': 140646293759664, 'layers.2.blocks.0.op': 140646293762544, 'layers.2.blocks.1.op': 140646293764704, 'layers.2.blocks.2.op': 140646293763888, 'layers.2.blocks.3.op': 140646291049200, 'layers.2.blocks.4.op': 140646291047760, 'layers.2.blocks.5.op': 140646293761824, 'layers.2.blocks.6.op': 140646291053520, 'layers.2.blocks.7.op': 140646291055632, 'layers.2.blocks.8.op': 140646291057120, 'layers.2.blocks.9.op': 140646293757840, 'layers.2.blocks.10.op': 140646291051216, 'layers.2.blocks.11.op': 140646291054960, 'layers.2.blocks.12.op': 140646291054192, 'layers.2.blocks.13.op': 140646291060192, 'layers.2.blocks.14.op': 140646291056592, 'layers.3.blocks.0.op': 140646294765872, 'layers.3.blocks.1.op': 140646294766688}
+[2024-11-14 14:44:26 vssm1_base_0229](main_no_dist.py 328): INFO Applying quater map to the model
+/usr/local/lib/python3.10/dist-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/usr/local/lib/python3.10/dist-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+Traceback (most recent call last):
+  File "/joe/VMamba-speedup/classification/main_no_dist.py", line 700, in <module>
+    main(config, args)
+  File "/joe/VMamba-speedup/classification/main_no_dist.py", line 331, in main
+    acc1, acc5, loss = validate(config, data_loader_val, model)
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/joe/VMamba-speedup/classification/main_no_dist.py", line 547, in validate
+    for idx, (images, target) in enumerate(data_loader):
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/data/dataloader.py", line 439, in __iter__
+    return self._get_iterator()
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/data/dataloader.py", line 387, in _get_iterator
+    return _MultiProcessingDataLoaderIter(self)
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/data/dataloader.py", line 1040, in __init__
+    w.start()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 121, in start
+    self._popen = self._Popen(self)
+  File "/usr/lib/python3.10/multiprocessing/context.py", line 224, in _Popen
+    return _default_context.get_context().Process._Popen(process_obj)
+  File "/usr/lib/python3.10/multiprocessing/context.py", line 288, in _Popen
+    return Popen(process_obj)
+  File "/usr/lib/python3.10/multiprocessing/popen_spawn_posix.py", line 32, in __init__
+    super().__init__(process_obj)
+  File "/usr/lib/python3.10/multiprocessing/popen_fork.py", line 19, in __init__
+    self._launch(process_obj)
+  File "/usr/lib/python3.10/multiprocessing/popen_spawn_posix.py", line 47, in _launch
+    reduction.dump(process_obj, fp)
+  File "/usr/lib/python3.10/multiprocessing/reduction.py", line 60, in dump
+    ForkingPickler(file, protocol).dump(obj)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1636, in __getstate__
+    def __getstate__(self):
+KeyboardInterrupt

@@ -188,6 +188,8 @@ def parse_option():
     args, unparsed = parser.parse_known_args()
     args.batch_size = int(os.environ.get("BATCH_SIZE", args.batch_size))
     args.img_size = int(os.environ.get("IMG_SIZE", 224))
+    # with open("vmamba_args.json", "w") as f:
+    #     json.dump(vars(args), f)
     config = get_config(args)
     return args, config
 
@@ -607,11 +609,13 @@ def throughput(data_loader, model, logger):
         images = images.cuda(non_blocking=True)
         batch_size = images.shape[0]
         for i in range(10):
+            record_utils.n_vss_block = 0
             model(images)
         torch.cuda.synchronize()
         logger.info(f"throughput averaged with 10 times")
         tic1 = time.time()
         for i in range(10):
+            record_utils.n_vss_block = 0
             model(images)
         torch.cuda.synchronize()
         tic2 = time.time()

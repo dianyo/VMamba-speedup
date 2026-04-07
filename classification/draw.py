@@ -9,10 +9,9 @@ accuracy = [83.016, 82.072, 81.248, 79.908, 80.000, 78.61, 78.71]
 # Plotting the line chart
 plt.figure(figsize=(10, 6), dpi=500)
 plt.plot(intervals, accuracy, marker='o', linestyle='-', color='b')
-plt.xlabel('Pruning Interval (m)', fontsize=20)
-plt.ylabel('Acc@1 (%)', fontsize=20)
-plt.xticks(intervals, fontsize=14)
-plt.yticks(fontsize=14)
+plt.xlabel('Pruning Interval (m)', fontsize=24)
+plt.ylabel('Acc@1 (%)', fontsize=24)
+plt.tick_params(axis='both', labelsize=24)
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("ablation_2_1.png")
@@ -75,14 +74,11 @@ plt.savefig("ablation_2_1.png")
 
 # # Updated plot aesthetics
 # # plt.title('Acc@1 for pruning with n/m = 1/2 ratio', fontsize=20)
-# plt.xlabel('Pruning Interval (m)', fontsize=20)
-# plt.ylabel('Acc@1 (%)', fontsize=20)
-# plt.legend(fontsize=14)
-# plt.xticks(fontsize=14)
-# plt.yticks(fontsize=14)
+# plt.xlabel('Pruning Interval (m)', fontsize=24)
+# plt.ylabel('Acc@1 (%)', fontsize=24)
+# plt.tick_params(axis='both', labelsize=24)
+# plt.legend(fontsize=24)
 # plt.grid(True, linestyle='--', alpha=0.7)
 # plt.tight_layout()
-# plt.savefig('ablation_2_2_ratio.png')
-
-
-# # 
+# plt.savefig('ablation_2_2_ratio.png')   
+# # # 

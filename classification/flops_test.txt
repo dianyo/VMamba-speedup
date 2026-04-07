@@ -1,0 +1,1167 @@
+||fork||=> merge config from configs/vssm/vmambav2_base_224.yaml
+/tmp/vssm1_base_0229/20241113085328
+[2024-11-13 08:53:28 vssm1_base_0229](main_no_dist.py 677): INFO Full config saved to /tmp/vssm1_base_0229/20241113085328/config.json
+[2024-11-13 08:53:28 vssm1_base_0229](main_no_dist.py 681): INFO {"cfg": "configs/vssm/vmambav2_base_224.yaml", "opts": null, "batch_size": 128, "data_path": "/joe/data/ImageNet-Zip/", "zip": true, "cache_mode": "part", "pretrained": null, "resume": "ckpt/vssm_base_0229_ckpt_epoch_237.pth", "accumulation_steps": null, "use_checkpoint": false, "disable_amp": false, "output": "/tmp/", "tag": "20241113085328", "eval": false, "throughput": false, "fused_layernorm": false, "optim": null, "model_ema": true, "model_ema_decay": 0.9999, "model_ema_force_cpu": false, "memory_limit_rate": -1, "plot_weight_distribution": false, "bitwidth": 32, "plot_type": "histogram", "fp16": false, "img_size": 224}
+[2024-11-13 08:53:28 vssm1_base_0229](main_no_dist.py 691): INFO Image size: 224, batch size: 128
+successfully build train dataset
+global_rank 0 cached 0/128 takes 0.00s per block
+global_rank 0 cached 12/128 takes 0.51s per block
+global_rank 0 cached 24/128 takes 0.00s per block
+global_rank 0 cached 36/128 takes 0.00s per block
+global_rank 0 cached 48/128 takes 0.00s per block
+global_rank 0 cached 60/128 takes 0.00s per block
+global_rank 0 cached 72/128 takes 0.00s per block
+global_rank 0 cached 84/128 takes 0.01s per block
+global_rank 0 cached 96/128 takes 0.00s per block
+global_rank 0 cached 108/128 takes 0.00s per block
+global_rank 0 cached 120/128 takes 0.00s per block
+successfully build val dataset
+[2024-11-13 08:53:29 vssm1_base_0229](main_no_dist.py 221): INFO Creating model:vssm/vssm1_base_0229
+[2024-11-13 08:53:30 vssm1_base_0229](main_no_dist.py 227): INFO number of params: 88557800
+[2024-11-13 08:53:30 vssm1_base_0229](main_no_dist.py 228): INFO Selected layers: []
+[2024-11-13 08:53:30 vssm1_base_0229](main_no_dist.py 229): INFO Token Merging Number: 0
+Using EMA with decay = 0.99990000
+[2024-11-13 08:53:31 vssm1_base_0229](optimizer.py 18): INFO ==============> building optimizer adamw....................
+[2024-11-13 08:53:31 vssm1_base_0229](optimizer.py 26): INFO No weight decay list: ['patch_embed.0.bias', 'patch_embed.2.weight', 'patch_embed.2.bias', 'patch_embed.5.bias', 'patch_embed.7.weight', 'patch_embed.7.bias', 'layers.0.blocks.0.norm.weight', 'layers.0.blocks.0.norm.bias', 'layers.0.blocks.0.op.Ds', 'layers.0.blocks.0.op.out_norm.weight', 'layers.0.blocks.0.op.out_norm.bias', 'layers.0.blocks.0.norm2.weight', 'layers.0.blocks.0.norm2.bias', 'layers.0.blocks.0.mlp.fc1.bias', 'layers.0.blocks.0.mlp.fc2.bias', 'layers.0.blocks.1.norm.weight', 'layers.0.blocks.1.norm.bias', 'layers.0.blocks.1.op.Ds', 'layers.0.blocks.1.op.out_norm.weight', 'layers.0.blocks.1.op.out_norm.bias', 'layers.0.blocks.1.norm2.weight', 'layers.0.blocks.1.norm2.bias', 'layers.0.blocks.1.mlp.fc1.bias', 'layers.0.blocks.1.mlp.fc2.bias', 'layers.0.downsample.1.bias', 'layers.0.downsample.3.weight', 'layers.0.downsample.3.bias', 'layers.1.blocks.0.norm.weight', 'layers.1.blocks.0.norm.bias', 'layers.1.blocks.0.op.Ds', 'layers.1.blocks.0.op.out_norm.weight', 'layers.1.blocks.0.op.out_norm.bias', 'layers.1.blocks.0.norm2.weight', 'layers.1.blocks.0.norm2.bias', 'layers.1.blocks.0.mlp.fc1.bias', 'layers.1.blocks.0.mlp.fc2.bias', 'layers.1.blocks.1.norm.weight', 'layers.1.blocks.1.norm.bias', 'layers.1.blocks.1.op.Ds', 'layers.1.blocks.1.op.out_norm.weight', 'layers.1.blocks.1.op.out_norm.bias', 'layers.1.blocks.1.norm2.weight', 'layers.1.blocks.1.norm2.bias', 'layers.1.blocks.1.mlp.fc1.bias', 'layers.1.blocks.1.mlp.fc2.bias', 'layers.1.downsample.1.bias', 'layers.1.downsample.3.weight', 'layers.1.downsample.3.bias', 'layers.2.blocks.0.norm.weight', 'layers.2.blocks.0.norm.bias', 'layers.2.blocks.0.op.Ds', 'layers.2.blocks.0.op.out_norm.weight', 'layers.2.blocks.0.op.out_norm.bias', 'layers.2.blocks.0.norm2.weight', 'layers.2.blocks.0.norm2.bias', 'layers.2.blocks.0.mlp.fc1.bias', 'layers.2.blocks.0.mlp.fc2.bias', 'layers.2.blocks.1.norm.weight', 'layers.2.blocks.1.norm.bias', 'layers.2.blocks.1.op.Ds', 'layers.2.blocks.1.op.out_norm.weight', 'layers.2.blocks.1.op.out_norm.bias', 'layers.2.blocks.1.norm2.weight', 'layers.2.blocks.1.norm2.bias', 'layers.2.blocks.1.mlp.fc1.bias', 'layers.2.blocks.1.mlp.fc2.bias', 'layers.2.blocks.2.norm.weight', 'layers.2.blocks.2.norm.bias', 'layers.2.blocks.2.op.Ds', 'layers.2.blocks.2.op.out_norm.weight', 'layers.2.blocks.2.op.out_norm.bias', 'layers.2.blocks.2.norm2.weight', 'layers.2.blocks.2.norm2.bias', 'layers.2.blocks.2.mlp.fc1.bias', 'layers.2.blocks.2.mlp.fc2.bias', 'layers.2.blocks.3.norm.weight', 'layers.2.blocks.3.norm.bias', 'layers.2.blocks.3.op.Ds', 'layers.2.blocks.3.op.out_norm.weight', 'layers.2.blocks.3.op.out_norm.bias', 'layers.2.blocks.3.norm2.weight', 'layers.2.blocks.3.norm2.bias', 'layers.2.blocks.3.mlp.fc1.bias', 'layers.2.blocks.3.mlp.fc2.bias', 'layers.2.blocks.4.norm.weight', 'layers.2.blocks.4.norm.bias', 'layers.2.blocks.4.op.Ds', 'layers.2.blocks.4.op.out_norm.weight', 'layers.2.blocks.4.op.out_norm.bias', 'layers.2.blocks.4.norm2.weight', 'layers.2.blocks.4.norm2.bias', 'layers.2.blocks.4.mlp.fc1.bias', 'layers.2.blocks.4.mlp.fc2.bias', 'layers.2.blocks.5.norm.weight', 'layers.2.blocks.5.norm.bias', 'layers.2.blocks.5.op.Ds', 'layers.2.blocks.5.op.out_norm.weight', 'layers.2.blocks.5.op.out_norm.bias', 'layers.2.blocks.5.norm2.weight', 'layers.2.blocks.5.norm2.bias', 'layers.2.blocks.5.mlp.fc1.bias', 'layers.2.blocks.5.mlp.fc2.bias', 'layers.2.blocks.6.norm.weight', 'layers.2.blocks.6.norm.bias', 'layers.2.blocks.6.op.Ds', 'layers.2.blocks.6.op.out_norm.weight', 'layers.2.blocks.6.op.out_norm.bias', 'layers.2.blocks.6.norm2.weight', 'layers.2.blocks.6.norm2.bias', 'layers.2.blocks.6.mlp.fc1.bias', 'layers.2.blocks.6.mlp.fc2.bias', 'layers.2.blocks.7.norm.weight', 'layers.2.blocks.7.norm.bias', 'layers.2.blocks.7.op.Ds', 'layers.2.blocks.7.op.out_norm.weight', 'layers.2.blocks.7.op.out_norm.bias', 'layers.2.blocks.7.norm2.weight', 'layers.2.blocks.7.norm2.bias', 'layers.2.blocks.7.mlp.fc1.bias', 'layers.2.blocks.7.mlp.fc2.bias', 'layers.2.blocks.8.norm.weight', 'layers.2.blocks.8.norm.bias', 'layers.2.blocks.8.op.Ds', 'layers.2.blocks.8.op.out_norm.weight', 'layers.2.blocks.8.op.out_norm.bias', 'layers.2.blocks.8.norm2.weight', 'layers.2.blocks.8.norm2.bias', 'layers.2.blocks.8.mlp.fc1.bias', 'layers.2.blocks.8.mlp.fc2.bias', 'layers.2.blocks.9.norm.weight', 'layers.2.blocks.9.norm.bias', 'layers.2.blocks.9.op.Ds', 'layers.2.blocks.9.op.out_norm.weight', 'layers.2.blocks.9.op.out_norm.bias', 'layers.2.blocks.9.norm2.weight', 'layers.2.blocks.9.norm2.bias', 'layers.2.blocks.9.mlp.fc1.bias', 'layers.2.blocks.9.mlp.fc2.bias', 'layers.2.blocks.10.norm.weight', 'layers.2.blocks.10.norm.bias', 'layers.2.blocks.10.op.Ds', 'layers.2.blocks.10.op.out_norm.weight', 'layers.2.blocks.10.op.out_norm.bias', 'layers.2.blocks.10.norm2.weight', 'layers.2.blocks.10.norm2.bias', 'layers.2.blocks.10.mlp.fc1.bias', 'layers.2.blocks.10.mlp.fc2.bias', 'layers.2.blocks.11.norm.weight', 'layers.2.blocks.11.norm.bias', 'layers.2.blocks.11.op.Ds', 'layers.2.blocks.11.op.out_norm.weight', 'layers.2.blocks.11.op.out_norm.bias', 'layers.2.blocks.11.norm2.weight', 'layers.2.blocks.11.norm2.bias', 'layers.2.blocks.11.mlp.fc1.bias', 'layers.2.blocks.11.mlp.fc2.bias', 'layers.2.blocks.12.norm.weight', 'layers.2.blocks.12.norm.bias', 'layers.2.blocks.12.op.Ds', 'layers.2.blocks.12.op.out_norm.weight', 'layers.2.blocks.12.op.out_norm.bias', 'layers.2.blocks.12.norm2.weight', 'layers.2.blocks.12.norm2.bias', 'layers.2.blocks.12.mlp.fc1.bias', 'layers.2.blocks.12.mlp.fc2.bias', 'layers.2.blocks.13.norm.weight', 'layers.2.blocks.13.norm.bias', 'layers.2.blocks.13.op.Ds', 'layers.2.blocks.13.op.out_norm.weight', 'layers.2.blocks.13.op.out_norm.bias', 'layers.2.blocks.13.norm2.weight', 'layers.2.blocks.13.norm2.bias', 'layers.2.blocks.13.mlp.fc1.bias', 'layers.2.blocks.13.mlp.fc2.bias', 'layers.2.blocks.14.norm.weight', 'layers.2.blocks.14.norm.bias', 'layers.2.blocks.14.op.Ds', 'layers.2.blocks.14.op.out_norm.weight', 'layers.2.blocks.14.op.out_norm.bias', 'layers.2.blocks.14.norm2.weight', 'layers.2.blocks.14.norm2.bias', 'layers.2.blocks.14.mlp.fc1.bias', 'layers.2.blocks.14.mlp.fc2.bias', 'layers.2.downsample.1.bias', 'layers.2.downsample.3.weight', 'layers.2.downsample.3.bias', 'layers.3.blocks.0.norm.weight', 'layers.3.blocks.0.norm.bias', 'layers.3.blocks.0.op.Ds', 'layers.3.blocks.0.op.out_norm.weight', 'layers.3.blocks.0.op.out_norm.bias', 'layers.3.blocks.0.norm2.weight', 'layers.3.blocks.0.norm2.bias', 'layers.3.blocks.0.mlp.fc1.bias', 'layers.3.blocks.0.mlp.fc2.bias', 'layers.3.blocks.1.norm.weight', 'layers.3.blocks.1.norm.bias', 'layers.3.blocks.1.op.Ds', 'layers.3.blocks.1.op.out_norm.weight', 'layers.3.blocks.1.op.out_norm.bias', 'layers.3.blocks.1.norm2.weight', 'layers.3.blocks.1.norm2.bias', 'layers.3.blocks.1.mlp.fc1.bias', 'layers.3.blocks.1.mlp.fc2.bias', 'classifier.norm.weight', 'classifier.norm.bias', 'classifier.head.bias']
+All checkpoints founded in /tmp/vssm1_base_0229/20241113085328: []
+[2024-11-13 08:53:31 vssm1_base_0229](main_no_dist.py 287): INFO no checkpoint found in /tmp/vssm1_base_0229/20241113085328, ignoring auto resume
+[2024-11-13 08:53:31 vssm1_base_0229](utils.py 18): INFO ==============> Resuming form ckpt/vssm_base_0229_ckpt_epoch_237.pth....................
+[2024-11-13 08:53:32 vssm1_base_0229](utils.py 27): INFO resuming model: <All keys matched successfully>
+[2024-11-13 08:53:32 vssm1_base_0229](utils.py 36): WARNING No 'model_ema' found in ckpt/vssm_base_0229_ckpt_epoch_237.pth! 
+{'layers.0.blocks.0.op': 140295486799344, 'layers.0.blocks.1.op': 140295487099408, 'layers.1.blocks.0.op': 140295487102768, 'layers.1.blocks.1.op': 140295487105792, 'layers.2.blocks.0.op': 140295487107952, 'layers.2.blocks.1.op': 140295487110160, 'layers.2.blocks.2.op': 140295487109104, 'layers.2.blocks.3.op': 140295525272736, 'layers.2.blocks.4.op': 140295525270912, 'layers.2.blocks.5.op': 140295487106896, 'layers.2.blocks.6.op': 140295525277056, 'layers.2.blocks.7.op': 140295487103776, 'layers.2.blocks.8.op': 140295525277344, 'layers.2.blocks.9.op': 140295487100320, 'layers.2.blocks.10.op': 140295525270720, 'layers.2.blocks.11.op': 140295525280512, 'layers.2.blocks.12.op': 140295525282480, 'layers.2.blocks.13.op': 140295525283104, 'layers.2.blocks.14.op': 140295525273888, 'layers.3.blocks.0.op': 140295525285360, 'layers.3.blocks.1.op': 140295525909408}
+layers.0.blocks.0.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.0.blocks.1.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.1.blocks.0.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+apply_quater_map in layers.1.blocks.0.op block
+torch.Size([1, 512, 14, 14])
+layers.1.blocks.1.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.0.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.1.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+apply_quater_map in layers.2.blocks.1.op block
+torch.Size([1, 1024, 7, 7])
+layers.2.blocks.2.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.3.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.4.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+apply_quater_map in layers.2.blocks.4.op block
+torch.Size([1, 1024, 7, 7])
+layers.2.blocks.5.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.6.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.7.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+apply_quater_map in layers.2.blocks.7.op block
+torch.Size([1, 1024, 7, 7])
+layers.2.blocks.8.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.9.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.10.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+apply_quater_map in layers.2.blocks.10.op block
+torch.Size([1, 1024, 7, 7])
+layers.2.blocks.11.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.12.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.2.blocks.13.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+apply_quater_map in layers.2.blocks.13.op block
+torch.Size([1, 1024, 7, 7])
+layers.2.blocks.14.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.3.blocks.0.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+layers.3.blocks.1.op {140295486799344: 'layers.0.blocks.0.op', 140295487099408: 'layers.0.blocks.1.op', 140295487102768: 'layers.1.blocks.0.op', 140295487105792: 'layers.1.blocks.1.op', 140295487107952: 'layers.2.blocks.0.op', 140295487110160: 'layers.2.blocks.1.op', 140295487109104: 'layers.2.blocks.2.op', 140295525272736: 'layers.2.blocks.3.op', 140295525270912: 'layers.2.blocks.4.op', 140295487106896: 'layers.2.blocks.5.op', 140295525277056: 'layers.2.blocks.6.op', 140295487103776: 'layers.2.blocks.7.op', 140295525277344: 'layers.2.blocks.8.op', 140295487100320: 'layers.2.blocks.9.op', 140295525270720: 'layers.2.blocks.10.op', 140295525280512: 'layers.2.blocks.11.op', 140295525282480: 'layers.2.blocks.12.op', 140295525283104: 'layers.2.blocks.13.op', 140295525273888: 'layers.2.blocks.14.op', 140295525285360: 'layers.3.blocks.0.op', 140295525909408: 'layers.3.blocks.1.op'}
+apply_quater_map in layers.3.blocks.1.op block
+torch.Size([1, 2048, 4, 4])
+[2024-11-13 08:53:37 vssm1_base_0229](main_no_dist.py 316): INFO N/A indicates a possibly missing statistic due to how the module was called. Missing values are still included in the parent's total.
+VSSM(
+  #params: 88.56M, #flops: 14.86G
+  (patch_embed): Sequential(
+    #params: 76.03K, #flops: 0.26G
+    (0): Conv2d(
+      3, 64, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)
+      #params: 1.79K, #flops: 21.68M
+    )
+    (1): Identity(#params: 0, #flops: N/A)
+    (2): LayerNorm2d(
+      (64,), eps=1e-05, elementwise_affine=True
+      #params: 0.13K, #flops: 4.01M
+    )
+    (3): Identity(#params: 0, #flops: N/A)
+    (4): GELU(approximate='none')
+    (5): Conv2d(
+      64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)
+      #params: 73.86K, #flops: 0.23G
+    )
+    (6): Identity(#params: 0, #flops: N/A)
+    (7): LayerNorm2d(
+      (128,), eps=1e-05, elementwise_affine=True
+      #params: 0.26K, #flops: 2.01M
+    )
+  )
+  (layers): ModuleList(
+    #params: 87.45M, #flops: 14.6G
+    (0): Sequential(
+      #params: 0.74M, #flops: 1.61G
+      (blocks): Sequential(
+        #params: 0.44M, #flops: 1.38G
+        (0): VSSBlock(
+          #params: 0.22M, #flops: 0.69G
+          (norm): LayerNorm2d(
+            (128,), eps=1e-05, elementwise_affine=True
+            #params: 0.26K, #flops: 2.01M
+          )
+          (op): SS2D(
+            #params: 89.86K, #flops: 0.27G
+            (out_norm): LayerNorm2d(
+              (256,), eps=1e-05, elementwise_affine=True
+              #params: 0.51K, #flops: 4.01M
+            )
+            (in_proj): Linear2d(
+              in_features=128, out_features=256, bias=False
+              #params: 32.77K, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=256, bias=False
+              #params: 2.3K, #flops: 7.23M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=256, out_features=128, bias=False
+              #params: 32.77K, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(
+            drop_prob=0.000
+            #params: 0, #flops: N/A
+          )
+          (norm2): LayerNorm2d(
+            (128,), eps=1e-05, elementwise_affine=True
+            #params: 0.26K, #flops: 2.01M
+          )
+          (mlp): Mlp(
+            #params: 0.13M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=128, out_features=512, bias=True
+              #params: 66.05K, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=512, out_features=128, bias=True
+              #params: 65.66K, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (1): VSSBlock(
+          #params: 0.22M, #flops: 0.69G
+          (norm): LayerNorm2d(
+            (128,), eps=1e-05, elementwise_affine=True
+            #params: 0.26K, #flops: 2.01M
+          )
+          (op): SS2D(
+            #params: 89.86K, #flops: 0.27G
+            (out_norm): LayerNorm2d(
+              (256,), eps=1e-05, elementwise_affine=True
+              #params: 0.51K, #flops: 4.01M
+            )
+            (in_proj): Linear2d(
+              in_features=128, out_features=256, bias=False
+              #params: 32.77K, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=256, bias=False
+              #params: 2.3K, #flops: 7.23M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=256, out_features=128, bias=False
+              #params: 32.77K, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.030)
+          (norm2): LayerNorm2d(
+            (128,), eps=1e-05, elementwise_affine=True
+            #params: 0.26K, #flops: 2.01M
+          )
+          (mlp): Mlp(
+            #params: 0.13M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=128, out_features=512, bias=True
+              #params: 66.05K, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=512, out_features=128, bias=True
+              #params: 65.66K, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+      )
+      (downsample): Sequential(
+        #params: 0.3M, #flops: 0.23G
+        (0): Identity(#params: 0, #flops: N/A)
+        (1): Conv2d(
+          128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)
+          #params: 0.3M, #flops: 0.23G
+        )
+        (2): Identity(#params: 0, #flops: N/A)
+        (3): LayerNorm2d(
+          (256,), eps=1e-05, elementwise_affine=True
+          #params: 0.51K, #flops: 1M
+        )
+      )
+    )
+    (1): Sequential(
+      #params: 2.92M, #flops: 1.55G
+      (blocks): Sequential(
+        #params: 1.74M, #flops: 1.32G
+        (0): VSSBlock(
+          #params: 0.87M, #flops: 0.64G
+          (norm): LayerNorm2d(
+            (256,), eps=1e-05, elementwise_affine=True
+            #params: 0.51K, #flops: 1M
+          )
+          (op): SS2D(
+            #params: 0.34M, #flops: 0.23G
+            (out_norm): LayerNorm2d(
+              (512,), eps=1e-05, elementwise_affine=True
+              #params: 1.02K, #flops: 2.01M
+            )
+            (in_proj): Linear2d(
+              in_features=256, out_features=512, bias=False
+              #params: 0.13M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=512, bias=False
+              #params: 4.61K, #flops: 3.61M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=512, out_features=256, bias=False
+              #params: 0.13M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.060)
+          (norm2): LayerNorm2d(
+            (256,), eps=1e-05, elementwise_affine=True
+            #params: 0.51K, #flops: 1M
+          )
+          (mlp): Mlp(
+            #params: 0.53M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=256, out_features=1024, bias=True
+              #params: 0.26M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=1024, out_features=256, bias=True
+              #params: 0.26M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (1): VSSBlock(
+          #params: 0.87M, #flops: 0.68G
+          (norm): LayerNorm2d(
+            (256,), eps=1e-05, elementwise_affine=True
+            #params: 0.51K, #flops: 1M
+          )
+          (op): SS2D(
+            #params: 0.34M, #flops: 0.27G
+            (out_norm): LayerNorm2d(
+              (512,), eps=1e-05, elementwise_affine=True
+              #params: 1.02K, #flops: 2.01M
+            )
+            (in_proj): Linear2d(
+              in_features=256, out_features=512, bias=False
+              #params: 0.13M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=512, bias=False
+              #params: 4.61K, #flops: 3.61M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=512, out_features=256, bias=False
+              #params: 0.13M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.090)
+          (norm2): LayerNorm2d(
+            (256,), eps=1e-05, elementwise_affine=True
+            #params: 0.51K, #flops: 1M
+          )
+          (mlp): Mlp(
+            #params: 0.53M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=256, out_features=1024, bias=True
+              #params: 0.26M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=1024, out_features=256, bias=True
+              #params: 0.26M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+      )
+      (downsample): Sequential(
+        #params: 1.18M, #flops: 0.23G
+        (0): Identity(#params: 0, #flops: N/A)
+        (1): Conv2d(
+          256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)
+          #params: 1.18M, #flops: 0.23G
+        )
+        (2): Identity(#params: 0, #flops: N/A)
+        (3): LayerNorm2d(
+          (512,), eps=1e-05, elementwise_affine=True
+          #params: 1.02K, #flops: 0.5M
+        )
+      )
+    )
+    (2): Sequential(
+      #params: 56.39M, #flops: 10.13G
+      (blocks): Sequential(
+        #params: 51.66M, #flops: 9.9G
+        (0): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.120)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (1): VSSBlock(
+          #params: 3.44M, #flops: 0.63G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.22G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.150)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (2): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.180)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (3): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.210)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (4): VSSBlock(
+          #params: 3.44M, #flops: 0.63G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.22G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.240)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (5): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.270)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (6): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.300)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (7): VSSBlock(
+          #params: 3.44M, #flops: 0.63G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.22G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.330)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (8): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.360)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (9): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.390)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (10): VSSBlock(
+          #params: 3.44M, #flops: 0.63G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.22G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.420)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (11): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.450)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (12): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.480)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (13): VSSBlock(
+          #params: 3.44M, #flops: 0.63G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.22G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.510)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (14): VSSBlock(
+          #params: 3.44M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (op): SS2D(
+            #params: 1.34M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (1024,), eps=1e-05, elementwise_affine=True
+              #params: 2.05K, #flops: 1M
+            )
+            (in_proj): Linear2d(
+              in_features=512, out_features=1024, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False
+              #params: 9.22K, #flops: 1.81M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=1024, out_features=512, bias=False
+              #params: 0.52M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.540)
+          (norm2): LayerNorm2d(
+            (512,), eps=1e-05, elementwise_affine=True
+            #params: 1.02K, #flops: 0.5M
+          )
+          (mlp): Mlp(
+            #params: 2.1M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=512, out_features=2048, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=2048, out_features=512, bias=True
+              #params: 1.05M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+      )
+      (downsample): Sequential(
+        #params: 4.72M, #flops: 0.23G
+        (0): Identity(#params: 0, #flops: N/A)
+        (1): Conv2d(
+          512, 1024, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)
+          #params: 4.72M, #flops: 0.23G
+        )
+        (2): Identity(#params: 0, #flops: N/A)
+        (3): LayerNorm2d(
+          (1024,), eps=1e-05, elementwise_affine=True
+          #params: 2.05K, #flops: 0.25M
+        )
+      )
+    )
+    (3): Sequential(
+      #params: 27.41M, #flops: 1.31G
+      (blocks): Sequential(
+        #params: 27.41M, #flops: 1.31G
+        (0): VSSBlock(
+          #params: 13.7M, #flops: 0.67G
+          (norm): LayerNorm2d(
+            (1024,), eps=1e-05, elementwise_affine=True
+            #params: 2.05K, #flops: 0.25M
+          )
+          (op): SS2D(
+            #params: 5.31M, #flops: 0.26G
+            (out_norm): LayerNorm2d(
+              (2048,), eps=1e-05, elementwise_affine=True
+              #params: 4.1K, #flops: 0.5M
+            )
+            (in_proj): Linear2d(
+              in_features=1024, out_features=2048, bias=False
+              #params: 2.1M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              2048, 2048, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=2048, bias=False
+              #params: 18.43K, #flops: 0.9M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=2048, out_features=1024, bias=False
+              #params: 2.1M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.570)
+          (norm2): LayerNorm2d(
+            (1024,), eps=1e-05, elementwise_affine=True
+            #params: 2.05K, #flops: 0.25M
+          )
+          (mlp): Mlp(
+            #params: 8.39M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=1024, out_features=4096, bias=True
+              #params: 4.2M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=4096, out_features=1024, bias=True
+              #params: 4.2M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+        (1): VSSBlock(
+          #params: 13.7M, #flops: 0.64G
+          (norm): LayerNorm2d(
+            (1024,), eps=1e-05, elementwise_affine=True
+            #params: 2.05K, #flops: 0.25M
+          )
+          (op): SS2D(
+            #params: 5.31M, #flops: 0.22G
+            (out_norm): LayerNorm2d(
+              (2048,), eps=1e-05, elementwise_affine=True
+              #params: 4.1K, #flops: 0.5M
+            )
+            (in_proj): Linear2d(
+              in_features=1024, out_features=2048, bias=False
+              #params: 2.1M, #flops: 0.1G
+            )
+            (act): SiLU()
+            (conv2d): Conv2d(
+              2048, 2048, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=2048, bias=False
+              #params: 18.43K, #flops: 0.9M
+            )
+            (out_act): Identity(#params: 0, #flops: N/A)
+            (out_proj): Linear2d(
+              in_features=2048, out_features=1024, bias=False
+              #params: 2.1M, #flops: 0.1G
+            )
+            (dropout): Identity(#params: 0, #flops: N/A)
+          )
+          (drop_path): DropPath(drop_prob=0.600)
+          (norm2): LayerNorm2d(
+            (1024,), eps=1e-05, elementwise_affine=True
+            #params: 2.05K, #flops: 0.25M
+          )
+          (mlp): Mlp(
+            #params: 8.39M, #flops: 0.41G
+            (fc1): Linear2d(
+              in_features=1024, out_features=4096, bias=True
+              #params: 4.2M, #flops: 0.21G
+            )
+            (act): GELU(approximate='none')
+            (fc2): Linear2d(
+              in_features=4096, out_features=1024, bias=True
+              #params: 4.2M, #flops: 0.21G
+            )
+            (drop): Dropout(p=0.0, inplace=False)
+          )
+        )
+      )
+      (downsample): Identity(#params: 0, #flops: N/A)
+    )
+  )
+  (classifier): Sequential(
+    #params: 1.03M, #flops: 1.33M
+    (norm): LayerNorm2d(
+      (1024,), eps=1e-05, elementwise_affine=True
+      #params: 2.05K, #flops: 0.25M
+    )
+    (permute): Identity(#params: 0, #flops: N/A)
+    (avgpool): AdaptiveAvgPool2d(
+      output_size=1
+      #params: 0, #flops: 50.18K
+    )
+    (flatten): Flatten(start_dim=1, end_dim=-1)
+    (head): Linear(
+      in_features=1024, out_features=1000, bias=True
+      #params: 1.02M, #flops: 1.02M
+    )
+  )
+)
